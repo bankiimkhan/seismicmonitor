@@ -1,0 +1,24 @@
+# Cloudflare Workers static-asset headers. Only applies to files served
+# straight out of .open-next/assets -- anything rendered by Next sets its own
+# headers in the route/page.
+
+# Next's own build output is content-hashed, so it can be cached hard forever.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Generated icon set (scripts/gen-icons.mjs) -- stable, but not hashed, so give
+# it a day rather than a year.
+/icons/*
+  Cache-Control: public, max-age=86400
+
+# maplibre-gl resolves these two at runtime relative to its own script URL
+# (see components/QuakeMap.tsx and scripts/copy-maplibre-worker.mjs), which is
+# why they sit at the web root instead of going through the bundler.
+/maplibre-gl-worker.mjs
+  Cache-Control: public, max-age=604800
+/maplibre-gl-shared.mjs
+  Cache-Control: public, max-age=604800
+
+# Must not be cached hard: a stale service worker pins users to an old build.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate

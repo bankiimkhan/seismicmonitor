@@ -1,4 +1,11 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Makes the Cloudflare bindings declared in wrangler.jsonc (the R2 cache
+// bucket, vars, secrets from .dev.vars) resolvable under plain `next dev`, so
+// local dev behaves like the Worker without having to go through
+// `opennextjs-cloudflare preview` on every change.
+initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
   // Earthquake's Local/Global/Map/Trends moved from top-level routes into

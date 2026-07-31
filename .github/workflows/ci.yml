@@ -18,7 +18,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # supabase/functions/_shared is generated from lib/ and committed, so the
+      # deployed ingest code matches the tested source. Fails if someone edited
+      # lib/ without re-running `npm run sync:edge`.
+      - run: node scripts/sync-edge-shared.mjs --check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
+      # Builds through the adapter rather than plain `next build`: this is the
+      # artifact that actually ships, so it catches OpenNext/workerd
+      # incompatibilities a bare Next build would miss.
+      - run: npx opennextjs-cloudflare build

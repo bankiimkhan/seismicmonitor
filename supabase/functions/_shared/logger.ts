@@ -1,3 +1,5 @@
+// GENERATED FILE -- DO NOT EDIT.
+// Copied from lib/logger.ts by scripts/sync-edge-shared.mjs. Edit the original.
 type LogFields = Record<string, unknown>;
 
 function emit(level: 'info' | 'warn' | 'error', message: string, fields?: LogFields) {
@@ -5,7 +7,7 @@ function emit(level: 'info' | 'warn' | 'error', message: string, fields?: LogFie
         level,
         message,
         time: new Date().toISOString(),
-        ...fields,
+        ...fields
     };
     const line = JSON.stringify(entry);
     if (level === 'error') console.error(line);
@@ -22,5 +24,5 @@ function emit(level: 'info' | 'warn' | 'error', message: string, fields?: LogFie
 export const log = {
     info: (message: string, fields?: LogFields) => emit('info', message, fields),
     warn: (message: string, fields?: LogFields) => emit('warn', message, fields),
-    error: (message: string, fields?: LogFields) => emit('error', message, fields),
+    error: (message: string, fields?: LogFields) => emit('error', message, fields)
 };

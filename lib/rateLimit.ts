@@ -1,12 +1,14 @@
 // Simple in-memory sliding-window rate limiter, keyed by IP.
 //
-// Known limitation: this state lives in the memory of a single serverless
-// instance, so it does not enforce a global limit across concurrent
-// instances -- a client could get a higher effective ceiling than
-// `maxRequests` if requests land on different instances. That's an
-// acceptable tradeoff at current traffic; if this app needs a real
-// distributed limit later, swap this for Upstash Redis (fixed-window or
-// sliding-window) without changing the call site below.
+// Known limitation: this state lives in the memory of a single Worker
+// isolate, so it does not enforce a global limit across concurrent
+// isolates -- a client could get a higher effective ceiling than
+// `maxRequests` if requests land on different ones. (Same caveat as the
+// serverless instances this ran on before; if anything it's looser here,
+// since Cloudflare runs isolates in many colos.) That's an acceptable
+// tradeoff at current traffic; for a real distributed limit, move the
+// counter into a Durable Object keyed by IP -- that's the primitive built
+// for exactly this -- without changing the call site below.
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
 

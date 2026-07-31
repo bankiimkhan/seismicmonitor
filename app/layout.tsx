@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AppShell } from "@/components/layout/AppShell";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { AnalyticsEvents } from "@/components/AnalyticsEvents";
@@ -36,6 +34,17 @@ const themeInitScript = `
 })();
 `;
 
+// Cloudflare Web Analytics, replacing @vercel/analytics + @vercel/speed-insights
+// (both of which only report from Vercel's edge and would just 404 here).
+// Inlined at build time, so it has to be present in the *build* environment,
+// not only as a Worker var -- see .env.example. Left unset (the local/CI case)
+// the beacon simply isn't rendered.
+//
+// Note: on a custom domain proxied through Cloudflare you can enable Web
+// Analytics in the dashboard instead and it injects this automatically; the
+// token is only needed for workers.dev or an unproxied origin.
+const beaconToken = process.env.NEXT_PUBLIC_CF_BEACON_TOKEN;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -60,8 +69,13 @@ export default function RootLayout({
         </LocaleProvider>
         <AnalyticsEvents />
         <ServiceWorkerRegister />
-        <Analytics />
-        <SpeedInsights />
+        {beaconToken && (
+          <script
+            defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: beaconToken })}
+          />
+        )}
       </body>
     </html>
   );

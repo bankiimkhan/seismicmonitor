@@ -1,0 +1,14 @@
+# Copy to `.dev.vars` (gitignored) for local Worker runs.
+#
+# This file is only for things wrangler needs to treat as Worker *secrets* in
+# local dev. Ordinary app config belongs in `.env` instead -- that works for
+# both `next dev` and `opennextjs-cloudflare preview`, and avoids keeping the
+# same value in two places.
+#
+# The Worker itself needs no secrets today: the ingest jobs (the only thing that
+# ever held one) now run as Supabase Edge Functions, which get their credentials
+# injected by the platform. This file is kept for whatever comes next.
+
+# Tells the adapter to load the `development` Next.js environment when running
+# under wrangler rather than the production one.
+NEXTJS_ENV=development

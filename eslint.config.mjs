@@ -16,6 +16,12 @@ const eslintConfig = defineConfig([
     // scripts/copy-maplibre-worker.mjs -- not our code to lint.
     "public/maplibre-gl-worker.mjs",
     "public/maplibre-gl-shared.mjs",
+    // Cloudflare build output and generated binding types (`npm run cf-typegen`).
+    ".open-next/**",
+    ".wrangler/**",
+    "cloudflare-env.d.ts",
+    // Deno, and generated from lib/ by scripts/sync-edge-shared.mjs.
+    "supabase/functions/**",
   ]),
 ]);
 

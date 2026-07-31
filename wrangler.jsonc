@@ -1,0 +1,43 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    "name": "seismicmonitor",
+    // Straight to the adapter's generated entrypoint. There was briefly a
+    // custom worker.ts here wrapping this with a `scheduled` handler, back when
+    // the ingest jobs ran as Cloudflare Cron Triggers -- they now run as
+    // Supabase Edge Functions on pg_cron (Workers Free caps subrequests at
+    // 50/invocation and cron CPU at 10ms, neither of which the ingest run
+    // fits), so there is nothing left to wrap.
+    "main": ".open-next/worker.js",
+    // Must not exceed the date of the workerd build bundled with the installed
+    // wrangler, or local dev refuses to start ("is in the future and
+    // unsupported"). Bump this alongside wrangler, not on its own.
+    "compatibility_date": "2026-07-30",
+    // nodejs_compat: required by @opennextjs/cloudflare (Next's server pulls in
+    // node builtins). global_fetch_strictly_public: makes fetch() to our own
+    // hostname go out through the CDN instead of looping back into this Worker,
+    // which is what the adapter expects.
+    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+    "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+    },
+    "observability": {
+        "enabled": true
+    },
+    // Backs Next's data cache (the `next: { revalidate }` fetches in
+    // lib/earthquakes.ts). Without an incremental cache override every request
+    // re-hits USGS/NCS directly. Create it once before the first deploy:
+    //   npx wrangler r2 bucket create seismicmonitor-cache
+    "r2_buckets": [
+        {
+            "binding": "NEXT_INC_CACHE_R2_BUCKET",
+            "bucket_name": "seismicmonitor-cache"
+        }
+    ],
+    "vars": {
+        // Runtime copy. The *client* bundle gets its own copy inlined at build
+        // time from .env -- setting it here does not cover that, so keep the
+        // two in sync (see .env.example).
+        "NEXT_PUBLIC_APP_URL": "https://seismicmonitor.contact-ahmedsakib.workers.dev"
+    }
+}
