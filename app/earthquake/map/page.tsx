@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from 'react';
 import { Card } from '@/components/ui/Card';
 import { PageHero } from '@/components/layout/PageHero';
 import { QuakeMap } from '@/components/QuakeMap';
@@ -20,19 +21,25 @@ export default function MapPage() {
     minMag: '3.0',
   });
 
-  const mapQuakes = quakes
-    .filter((q) => q.geometry?.coordinates)
-    .map((q) => ({
-      id: q.id,
-      lat: q.geometry.coordinates[1],
-      lng: q.geometry.coordinates[0],
-      depth: q.geometry.coordinates[2],
-      mag: q.properties.mag,
-      place: q.properties.place,
-      time: q.properties.time,
-      source: q.properties.source,
-      url: q.properties.url,
-    }));
+  // Memoized: QuakeMap's marker-sync effect keys on this array's identity, so
+  // rebuilding it every render tore down and recreated all ~200 markers and
+  // their popups each time.
+  const mapQuakes = useMemo(
+    () => quakes
+      .filter((q) => q.geometry?.coordinates)
+      .map((q) => ({
+        id: q.id,
+        lat: q.geometry.coordinates[1],
+        lng: q.geometry.coordinates[0],
+        depth: q.geometry.coordinates[2],
+        mag: q.properties.mag,
+        place: q.properties.place,
+        time: q.properties.time,
+        source: q.properties.source,
+        url: q.properties.url,
+      })),
+    [quakes]
+  );
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10">

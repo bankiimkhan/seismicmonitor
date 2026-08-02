@@ -6,6 +6,7 @@ import { Tag } from '@/components/ui/Badge';
 import { LineChart, BarList } from '@/components/ui/charts';
 import { ActivityIcon, TrendingUpIcon, GlobeIcon } from '@/components/ui/icons';
 import { LocationPrompt } from '@/components/LocationPrompt';
+import { CoverageNotice } from '@/components/CoverageNotice';
 import { useLocation } from '@/hooks/useLocation';
 import { HAZARD_CONFIG, type HazardSlug } from '@/lib/hazardConfig';
 
@@ -78,6 +79,8 @@ export function HazardTrends({ hazardSlug }: HazardTrendsProps) {
                     ))}
                 </div>
             </div>
+
+            <CoverageNotice notice={config.coverageNotice} />
 
             <LocationPrompt
                 status={locationStatus}

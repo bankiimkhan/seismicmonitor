@@ -91,14 +91,14 @@ export const HazardTable: React.FC<HazardTableProps> = ({
     if (hazards.length === 0) return <EmptyState title={emptyTitle} description={emptyDescription} />;
 
     return (
-        <div className={`overflow-hidden rounded-lg border border-border bg-surface shadow-xs ${className}`}>
+        <div className={`overflow-hidden rounded-2xl border border-border/80 bg-surface/90 shadow-md backdrop-blur-xl ${className}`}>
             <div className="max-h-[65vh] overflow-x-auto overflow-y-auto">
                 <table className="w-full min-w-[640px] border-collapse text-sm">
                     <thead>
-                        <tr className="sticky top-0 z-10 border-b border-border bg-surface/95 backdrop-blur">
+                        <tr className="sticky top-0 z-10 border-b border-border/90 bg-[#090b0e]/95 backdrop-blur-xl">
                             <th className="group px-4 py-3 text-left"><SortHeader label={valueLabel} active={sort.key === 'value'} dir={sort.dir} onClick={() => toggleSort('value')} /></th>
-                            <th className="px-2 py-3 text-left"><span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Location</span></th>
-                            <th className="px-2 py-3 text-left"><span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">Confidence</span></th>
+                            <th className="px-2 py-3 text-left"><span className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">Location</span></th>
+                            <th className="px-2 py-3 text-left"><span className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">Confidence</span></th>
                             <th className="group px-2 py-3 text-right"><SortHeader label="Reported" active={sort.key === 'time'} dir={sort.dir} onClick={() => toggleSort('time')} /></th>
                         </tr>
                     </thead>

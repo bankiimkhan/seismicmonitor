@@ -22,6 +22,11 @@ jobs:
       # deployed ingest code matches the tested source. Fails if someone edited
       # lib/ without re-running `npm run sync:edge`.
       - run: node scripts/sync-edge-shared.mjs --check
+      # public/maplibre-gl-*.mjs are committed copies of the installed
+      # maplibre-gl dist files (QuakeMap points setWorkerUrl at them). Bumping
+      # maplibre-gl without re-copying leaves stale worker bytes and every map
+      # silently stops loading tiles, so the drift is caught here.
+      - run: node scripts/copy-maplibre-worker.mjs --check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

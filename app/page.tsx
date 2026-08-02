@@ -22,9 +22,16 @@ import { HAZARD_CONFIG } from '@/lib/hazardConfig';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
 // --- EMERGENCY NUMBER DATABASE ---
+// Only numbers that have been checked go in here. There is deliberately NO
+// catch-all default: this used to fall back to "112" for any unmapped country,
+// which is right for the EU/GSM and wrong across much of the world (Brazil is
+// 190/192, Nigeria 199, and so on). Presenting a confident wrong number in a
+// disaster app is worse than admitting we don't know -- see the null branch at
+// the render site below.
 const emergencyNumbers: { [key: string]: string } = {
-  // South Asia
-  BD: "02-58811651", IN: "112", PK: "1122", LK: "119", NP: "100", BT: "112", MM: "199",
+  // South Asia. BD is the National Emergency Service (police/fire/ambulance),
+  // not the Dhaka Fire Service HQ landline that used to be here.
+  BD: "999", IN: "112", PK: "1122", LK: "119", NP: "100", BT: "112", MM: "199",
   // North America
   US: "911", CA: "911", MX: "911",
   // Europe
@@ -51,9 +58,11 @@ export default function Home() {
   const [visibleCount, setVisibleCount] = useState(4);
   const [fullDataLoaded, setFullDataLoaded] = useState(false);
 
-  // DYNAMIC SAFETY INFO
+  // DYNAMIC SAFETY INFO. `null` = we have no verified number for this country
+  // (or location/reverse-geocode hasn't resolved yet), which is rendered as an
+  // explicit "look it up" prompt rather than a plausible-looking guess.
   const [country, setCountry] = useState("your area");
-  const [emergencyNum, setEmergencyNum] = useState("112");
+  const [emergencyNum, setEmergencyNum] = useState<string | null>(null);
 
   const hoursWindow = fullDataLoaded ? '24' : '12';
 
@@ -94,25 +103,52 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSource(inIndiaSubcontinent ? 'ncs' : 'usgs');
 
+    // Reverse-geocode to name the country and pick its emergency number. This
+    // sends the resolved coordinates to a third party (disclosed in the
+    // location prompt and on /about); it is bounded by an abort timeout so a
+    // hanging provider can't leave the safety card stuck on its placeholder
+    // indefinitely.
     let cancelled = false;
-    fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.lat}&longitude=${location.lng}&localityLanguage=en`)
-      .then((res) => res.json())
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.lat}&longitude=${location.lng}&localityLanguage=en`,
+      { signal: controller.signal }
+    )
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`geocode status ${res.status}`))))
       .then((data) => {
         if (cancelled) return;
         setCountry(data.countryName || "your area");
-        setEmergencyNum(emergencyNumbers[data.countryCode] || "112");
+        // No "|| 112" fallback: an unmapped country yields null, which renders
+        // as an explicit prompt to look up the local number.
+        setEmergencyNum(emergencyNumbers[data.countryCode] ?? null);
       })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      .catch(() => {
+        // Leaves country/emergencyNum at their "unknown" defaults rather than
+        // asserting a number we can't stand behind.
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [location]);
 
+  // Only events with a real magnitude can be "strongest" -- USGS reports
+  // `mag: null` for some events, and comparing against null silently returned
+  // whichever happened to be first, then threw on `.toFixed()` downstream.
   const strongest = useMemo(() => {
-    if (quakes.length === 0) return null;
-    return quakes.reduce((max, q) => (q.properties.mag > max.properties.mag ? q : max), quakes[0]);
+    const measured = quakes.filter(
+      (q): q is typeof q & { properties: { mag: number } } => q.properties.mag !== null
+    );
+    if (measured.length === 0) return null;
+    return measured.reduce((max, q) => (q.properties.mag > max.properties.mag ? q : max));
   }, [quakes]);
 
   const magSparkline = useMemo(
-    () => [...quakes].reverse().slice(-12).map((q) => q.properties.mag),
+    () => [...quakes].reverse().slice(-12)
+      .map((q) => q.properties.mag)
+      .filter((m): m is number => m !== null),
     [quakes]
   );
 
@@ -213,7 +249,10 @@ export default function Home() {
           </Link>
           <HazardWatchCard hazardType={HAZARD_CONFIG.wildfire.hazardType} title={t('home.wildfires')} icon={<FlameIcon size={16} />} href="/wildfire/global" hours={HAZARD_CONFIG.wildfire.watchHours} unit={HAZARD_CONFIG.wildfire.unit} noActivityLabel={t('dashboard.noActivity')} />
           <HazardWatchCard hazardType={HAZARD_CONFIG.volcano.hazardType} title={t('home.volcanoes')} icon={<VolcanoIcon size={16} />} href="/volcano/global" hours={HAZARD_CONFIG.volcano.watchHours} noActivityLabel={t('dashboard.noActivity')} />
-          <HazardWatchCard hazardType={HAZARD_CONFIG.landslide.hazardType} title={t('home.landslides')} icon={<LandslideIcon size={16} />} href="/landslide/global" hours={HAZARD_CONFIG.landslide.watchHours} noActivityLabel={t('dashboard.noActivity')} />
+          {/* unavailableLabel: EONET's landslide category publishes nothing, so a
+              zero here is "no source", not "no landslides" -- see
+              lib/hazardConfig.ts's coverageNotice for the same caveat in full. */}
+          <HazardWatchCard hazardType={HAZARD_CONFIG.landslide.hazardType} title={t('home.landslides')} icon={<LandslideIcon size={16} />} href="/landslide/global" hours={HAZARD_CONFIG.landslide.watchHours} noActivityLabel={t('dashboard.noActivity')} unavailableLabel="No source reporting" />
           <HazardWatchCard hazardType={HAZARD_CONFIG.cyclone.hazardType} title={t('home.cyclones')} icon={<CycloneIcon size={16} />} href="/cyclone/global" hours={HAZARD_CONFIG.cyclone.watchHours} unit={HAZARD_CONFIG.cyclone.unit} noActivityLabel={t('dashboard.noActivity')} />
 
           {/* Detected location, not a hazard tile -- occupies the slot
@@ -307,9 +346,19 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card elevated>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">{t('home.emergencyHotline')}</p>
-            <a href={`tel:${emergencyNum.replace('-', '')}`} className="text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-accent">
-              {emergencyNum}
-            </a>
+            {emergencyNum ? (
+              <a
+                href={`tel:${emergencyNum.replace(/[^0-9+]/g, '')}`}
+                className="text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-accent"
+              >
+                {emergencyNum}
+              </a>
+            ) : (
+              <p className="text-sm text-foreground-muted">
+                No verified emergency number for {country}. Look up your local emergency
+                number now, before you need it.
+              </p>
+            )}
           </Card>
 
           <Card>

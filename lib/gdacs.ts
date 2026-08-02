@@ -32,7 +32,12 @@ interface GdacsFeature {
     geometry: { coordinates: [number, number] };
 }
 
-export async function fetchGdacsFeatures(hours: number, limit: number): Promise<EarthquakeFeature[]> {
+/** Returns `null` when the feed could not be read, `[]` when it was read and
+ * genuinely reported no earthquakes -- the same distinction lib/firms.ts and
+ * lib/noaaCyclones.ts draw. Returning `[]` for both (as this used to) meant the
+ * ingest job's `try/catch` never saw a failure, so GDACS was recorded as
+ * 'online' on /about no matter how long it had been down. */
+export async function fetchGdacsFeatures(hours: number, limit: number): Promise<EarthquakeFeature[] | null> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -86,7 +91,7 @@ export async function fetchGdacsFeatures(hours: number, limit: number): Promise<
         });
     } catch (err) {
         log.warn('GDACS fetch failed', { error: String(err) });
-        return [];
+        return null;
     } finally {
         clearTimeout(timeoutId);
     }

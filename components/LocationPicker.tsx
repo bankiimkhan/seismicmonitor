@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 
@@ -24,24 +24,41 @@ export function LocationPicker({ onSelect, onCancel }: LocationPickerProps) {
     const [results, setResults] = useState<NominatimResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
+    const [failed, setFailed] = useState(false);
+    const abortRef = useRef<AbortController | null>(null);
+
+    useEffect(() => () => abortRef.current?.abort(), []);
 
     const search = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!query.trim()) return;
+
+        // Two quick submits could otherwise resolve out of order and leave the
+        // earlier query's results showing under the later one.
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         setLoading(true);
         setSearched(true);
+        setFailed(false);
         try {
             const url = new URL('https://nominatim.openstreetmap.org/search');
             url.searchParams.set('q', query);
             url.searchParams.set('format', 'json');
             url.searchParams.set('limit', '5');
-            const res = await fetch(url.toString());
-            const data: NominatimResult[] = res.ok ? await res.json() : [];
-            setResults(data);
-        } catch {
+            const res = await fetch(url.toString(), { signal: controller.signal });
+            if (!res.ok) throw new Error(`Nominatim status ${res.status}`);
+            setResults(await res.json());
+        } catch (err) {
+            if ((err as Error)?.name === 'AbortError') return;
+            // A lookup failure is NOT "no matches" -- telling someone their
+            // spelling is wrong when the geocoder is down sends them in
+            // entirely the wrong direction.
             setResults([]);
+            setFailed(true);
         } finally {
-            setLoading(false);
+            if (!controller.signal.aborted) setLoading(false);
         }
     };
 
@@ -65,7 +82,13 @@ export function LocationPicker({ onSelect, onCancel }: LocationPickerProps) {
                 )}
             </form>
 
-            {searched && !loading && results.length === 0 && (
+            {failed && !loading && (
+                <p role="alert" className="text-sm text-danger">
+                    Place search is unavailable right now — this isn&apos;t about your spelling. Try again in a moment.
+                </p>
+            )}
+
+            {searched && !failed && !loading && results.length === 0 && (
                 <p className="text-sm text-foreground-muted">No matches. Try a different spelling or a larger nearby city.</p>
             )}
 

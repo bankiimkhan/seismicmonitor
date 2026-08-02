@@ -13,7 +13,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { fetchEarthquakeFeatures, type EarthquakeFeature } from '../_shared/earthquakes.ts';
 import { fetchGdacsFeatures } from '../_shared/gdacs.ts';
-import { fetchFirmsHotspots } from '../_shared/firms.ts';
+import { fetchFirmsHotspots, isFirmsConfigured } from '../_shared/firms.ts';
 import { fetchEonetRecords } from '../_shared/eonet.ts';
 import { fetchNoaaCyclones } from '../_shared/noaaCyclones.ts';
 import { fetchTsunamiAlerts } from '../_shared/nwsTsunami.ts';
@@ -112,15 +112,39 @@ async function runIngest() {
     const healthUpdates: { source: string; status: string }[] = [];
     const now = new Date().toISOString();
 
-    const fetchers: { source: Agency; run: () => Promise<EarthquakeFeature[]> }[] = [
+    // `null` means this agency's feed could not be read at all -- kept distinct
+    // from a successful fetch that returned no events, so only a real read marks
+    // the source online.
+    const fetchers: { source: Agency; run: () => Promise<EarthquakeFeature[] | null> }[] = [
         { source: 'usgs', run: async () => (await fetchEarthquakeFeatures({ source: 'usgs', hours: 1, limit: 300 })).features },
-        { source: 'ncs', run: async () => (await fetchEarthquakeFeatures({ source: 'ncs', hours: 1, limit: 100 })).features },
+        {
+            source: 'ncs',
+            // fetchEarthquakeFeatures transparently substitutes USGS when the NCS
+            // scrape fails. That is right for the live feed -- a reader wants
+            // *some* data, and /api/earthquakes surfaces the swap via
+            // metadata.status -- but wrong for the archive: those USGS features
+            // would be written as agency 'ncs' carrying USGS native ids, and the
+            // merge engine would then see one USGS reading as two independent
+            // agencies agreeing and score the event `high` confidence
+            // (lib/mergeEngine.ts's scoreConfidence counts distinct agencies).
+            // Fabricating cross-agency corroboration is the one thing that tier
+            // must never do, so honour the flag and treat it as a failed read.
+            run: async () => {
+                const { features, sourceStatus } = await fetchEarthquakeFeatures({ source: 'ncs', hours: 1, limit: 100 });
+                return sourceStatus === 'fallback' ? null : features;
+            },
+        },
         { source: 'gdacs', run: () => fetchGdacsFeatures(1, 100) },
     ];
 
     for (const { source, run } of fetchers) {
         try {
             const features = await run();
+            if (features === null) {
+                log.warn(`ingest: ${source} feed unreadable, skipping this cycle`);
+                healthUpdates.push({ source, status: 'fallback' });
+                continue;
+            }
             normalized.push(...features.map((f) => toNormalized(f, source)));
             healthUpdates.push({ source, status: 'online' });
         } catch (err) {
@@ -269,15 +293,27 @@ async function runIngest() {
     // clustered "fire incident".
     let wildfireFetched = 0;
     let wildfireInserted = 0;
-    const lastFirms = await lastSuccessMs(admin, 'firms');
-    const shouldPollFirms = !lastFirms || Date.now() - lastFirms > FIRMS_POLL_INTERVAL_MS;
+    // Configuration is checked first, and short-circuits the gate entirely.
+    // Without the key `fetchFirmsHotspots` can only return null, and because
+    // that path writes no scraper_health row, `lastSuccessMs` stays null
+    // forever -- so the gate below was permanently open and this ran a doomed
+    // fetch plus a pointless health lookup every 15 minutes.
+    const firmsConfigured = isFirmsConfigured();
+    if (!firmsConfigured) {
+        log.warn('ingest: NASA_FIRMS_MAP_KEY is not set -- FIRMS wildfire hotspots are not being ingested');
+    }
+    const lastFirms = firmsConfigured ? await lastSuccessMs(admin, 'firms') : null;
+    const shouldPollFirms = firmsConfigured && (!lastFirms || Date.now() - lastFirms > FIRMS_POLL_INTERVAL_MS);
     if (shouldPollFirms) {
         const hotspots = await fetchFirmsHotspots(1);
-        // null means NASA_FIRMS_MAP_KEY isn't set -- no scraper_health row at
-        // all until it's configured, rather than a permanent "fallback" status.
+        // Inside this branch `null` can only mean the fetch failed -- the
+        // unconfigured case already short-circuited shouldPollFirms above.
+        // Recording that as a failure is what keeps last_success_at where it
+        // was, so the 2h gate stays open and the next cycle retries instead of
+        // waiting out a success that never happened.
+        healthUpdates.push({ source: 'firms', status: hotspots !== null ? 'online' : 'fallback' });
         if (hotspots !== null) {
             wildfireFetched = hotspots.length;
-            healthUpdates.push({ source: 'firms', status: 'online' });
             wildfireInserted = await ingestSingleSource(admin, 'firms', hotspots, (h) => ({
                 hazard: {
                     id: h.agencyNativeId,
@@ -322,9 +358,12 @@ async function runIngest() {
     const shouldPollEonet = !lastEonet || Date.now() - lastEonet > EONET_POLL_INTERVAL_MS;
     if (shouldPollEonet) {
         const records = await fetchEonetRecords();
-        eonetFetched = records.length;
-        healthUpdates.push({ source: 'eonet', status: 'online' });
-        eonetInserted = await ingestSingleSource(admin, 'eonet', records, (r) => ({
+        // Same last_success_at reasoning as FIRMS above: `null` (every category
+        // unreadable) must not stamp a success, or the 1h gate suppresses the
+        // retry while /about still reports the source healthy.
+        healthUpdates.push({ source: 'eonet', status: records !== null ? 'online' : 'fallback' });
+        eonetFetched = records?.length ?? 0;
+        eonetInserted = records === null ? 0 : await ingestSingleSource(admin, 'eonet', records, (r) => ({
             hazard: {
                 id: r.agencyNativeId,
                 hazard_type: r.hazardType,
@@ -360,10 +399,14 @@ async function runIngest() {
     // Cyclones (NOAA NHC): no poll gate -- the id embeds the advisory's
     // lastUpdate timestamp, so fetching every cycle re-upserts the same row as a
     // harmless no-op until NHC issues a new advisory (~every 6h).
-    const cyclones = await fetchNoaaCyclones();
+    const cyclonesResult = await fetchNoaaCyclones();
+    // Health is recorded on a successful *fetch*, not on a non-empty result:
+    // gating it on `length > 0` meant a quiet period looked identical to a
+    // broken adapter, and wrote no health row either way.
+    healthUpdates.push({ source: 'noaa', status: cyclonesResult !== null ? 'online' : 'fallback' });
+    const cyclones = cyclonesResult ?? [];
     let cycloneInserted = 0;
     if (cyclones.length > 0) {
-        healthUpdates.push({ source: 'noaa', status: 'online' });
         cycloneInserted = await ingestSingleSource(admin, 'noaa', cyclones, (c) => ({
             hazard: {
                 id: c.agencyNativeId,
@@ -399,10 +442,14 @@ async function runIngest() {
 
     // Tsunami (NOAA/NWS CAP alerts): single source, no poll gate -- a CAP
     // message gets a new id on every update. US coastal waters/territories only.
-    const tsunamiAlerts = await fetchTsunamiAlerts();
+    const tsunamiResult = await fetchTsunamiAlerts();
+    // Same as cyclones above -- tsunami alerts are rare, so gating the health
+    // row on `length > 0` meant this source never appeared on /about at all and
+    // an adapter failure would have gone completely unnoticed.
+    healthUpdates.push({ source: 'nws-tsunami', status: tsunamiResult !== null ? 'online' : 'fallback' });
+    const tsunamiAlerts = tsunamiResult ?? [];
     let tsunamiInserted = 0;
     if (tsunamiAlerts.length > 0) {
-        healthUpdates.push({ source: 'nws-tsunami', status: 'online' });
         tsunamiInserted = await ingestSingleSource(admin, 'nws-tsunami', tsunamiAlerts, (a) => ({
             hazard: {
                 id: a.agencyNativeId,

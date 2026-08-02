@@ -25,6 +25,13 @@ export interface HazardConfig {
     emptyTitle: string;
     emptyDescription: string;
     errorTitle: string;
+    /** Standing caveat about what this hazard's feed can and cannot tell you,
+     * shown above the results whether or not any are present. Exists because an
+     * empty list is otherwise indistinguishable from "nothing is wrong": for
+     * landslide the only wired source publishes nothing at all, and for tsunami
+     * the coverage is regional. Omitted for hazard types whose feed means what
+     * a reader would assume it means. */
+    coverageNotice?: string;
 }
 
 export const HAZARD_SLUGS = ['earthquake', 'tsunami', 'cyclone', 'landslide', 'volcano', 'wildfire'] as const;
@@ -63,8 +70,13 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         itemNounSingular: 'tsunami alert',
         itemNounPlural: 'tsunami alerts',
         emptyTitle: 'No active tsunami alerts',
-        emptyDescription: 'No tsunami warnings, watches, or advisories reported in this window. Coverage is US coastal waters and territories only (NOAA/NWS) -- absence here is not a global guarantee.',
+        emptyDescription: 'No tsunami warnings, watches, or advisories reported in this window.',
         errorTitle: "Couldn't load tsunami data",
+        // Promoted out of emptyDescription so it is visible whether or not the
+        // list is empty -- the regional limit matters just as much when one
+        // alert IS showing (it does not imply the rest of the world is clear).
+        coverageNotice:
+            'Coverage is US coastal waters and territories only (NOAA/NWS). Absence of an alert here is not a global all-clear — check your national tsunami warning centre.',
     },
     cyclone: {
         slug: 'cyclone',
@@ -88,7 +100,7 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         slug: 'landslide',
         hazardType: 'landslide',
         title: 'Landslides',
-        description: 'Reported landslides worldwide (NASA EONET)',
+        description: 'Landslide reporting is currently unavailable — see the notice below',
         icon: LandslideIcon,
         valueLabel: '—',
         hasValue: false,
@@ -97,9 +109,16 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         watchHours: 720,
         itemNounSingular: 'landslide',
         itemNounPlural: 'landslides',
-        emptyTitle: 'No landslides found',
-        emptyDescription: 'No landslides reported in this window.',
+        emptyTitle: 'No landslide data available',
+        emptyDescription: 'This is not the same as "no landslides occurred" — see the notice above.',
         errorTitle: "Couldn't load landslide data",
+        // NASA EONET's `landslides` category is the only source wired for this
+        // hazard type, and it publishes nothing: checked live, it returns zero
+        // events at status=open and zero over a 365-day window, and no landslide
+        // row has ever reached hazard_events. Saying "No landslides found"
+        // against that reads as reassurance, which is the opposite of the truth.
+        coverageNotice:
+            'No landslide source is currently reporting. This section is backed by NASA EONET\'s landslide category, which is not publishing events — an empty list here means "no data", not "no landslides". Do not treat this page as evidence of safety.',
     },
     volcano: {
         slug: 'volcano',

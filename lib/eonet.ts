@@ -53,7 +53,10 @@ interface EonetEvent {
     geometry: EonetGeometryPoint[];
 }
 
-async function fetchCategory(categoryId: string): Promise<EonetRecord[]> {
+/** `null` when this category's fetch failed, distinct from `[]` for a category
+ * that was read and is genuinely reporting nothing (which is the normal,
+ * permanent state of `landslides` -- see lib/hazardConfig.ts). */
+async function fetchCategory(categoryId: string): Promise<EonetRecord[] | null> {
     const hazardType = CATEGORY_TO_HAZARD_TYPE[categoryId];
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -97,13 +100,32 @@ async function fetchCategory(categoryId: string): Promise<EonetRecord[]> {
         return records;
     } catch (err) {
         log.warn('EONET category fetch failed', { error: String(err), categoryId });
-        return [];
+        return null;
     } finally {
         clearTimeout(timeoutId);
     }
 }
 
-export async function fetchEonetRecords(): Promise<EonetRecord[]> {
-    const results = await Promise.all(Object.keys(CATEGORY_TO_HAZARD_TYPE).map(fetchCategory));
-    return results.flat();
+/** Returns `null` only when EVERY category fetch failed -- i.e. the feed as a
+ * whole is unreadable, and an empty result must not be read as "no events".
+ * A partial failure still returns the categories that did come back, since
+ * discarding real data for one broken category would be worse.
+ *
+ * This used to always return an array, so the caller (the ingest job) recorded
+ * `eonet` as online and stamped scraper_health.last_success_at even when every
+ * category had failed -- which is what EONET_POLL_INTERVAL_MS gates on, so a
+ * total outage silently suppressed volcano/severe-weather/landslide ingest for
+ * the next hour and still showed the source healthy on /about. */
+export async function fetchEonetRecords(): Promise<EonetRecord[] | null> {
+    const categories = Object.keys(CATEGORY_TO_HAZARD_TYPE);
+    const results = await Promise.all(categories.map(fetchCategory));
+
+    const readable = results.filter((r): r is EonetRecord[] => r !== null);
+    if (readable.length === 0) return null;
+    if (readable.length < results.length) {
+        log.warn('EONET partially unreadable', {
+            failed: categories.filter((_, i) => results[i] === null).join(','),
+        });
+    }
+    return readable.flat();
 }

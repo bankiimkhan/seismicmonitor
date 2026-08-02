@@ -49,10 +49,21 @@ export interface EarthquakeQueryResult {
     sourceStatus?: 'online' | 'fallback';
 }
 
+// Latitude is clamped to the poles: USGS FDSN rejects minlatitude/maxlatitude
+// outside [-90, 90] with a 400, and the Local page fetches a 20-degree box, so
+// anyone above ~70N (Tromso, Utqiagvik, most of Alaska's north slope) produced
+// an out-of-range query. That used to be invisible -- the 400 was swallowed into
+// an empty feed -- but it was never "no earthquakes near you", it was a
+// malformed request, and it now surfaces as a real error instead.
+//
+// Longitude is deliberately NOT clamped: USGS documents accepting [-360, 360]
+// precisely so a box spanning the antimeridian stays contiguous, and the only
+// other consumer (/api/hazards' Supabase range filter) just matches nothing
+// outside the real range rather than erroring.
 export function buildBBoxFromCenter(lat: number, lng: number, rangeDeg: number) {
     return {
-        minLat: lat - rangeDeg,
-        maxLat: lat + rangeDeg,
+        minLat: Math.max(-90, lat - rangeDeg),
+        maxLat: Math.min(90, lat + rangeDeg),
         minLng: lng - rangeDeg,
         maxLng: lng + rangeDeg,
     };
@@ -77,7 +88,12 @@ async function fetchUsgsFeatures(opts: {
     if (minMag !== undefined) url.searchParams.set('minmagnitude', String(minMag));
 
     const response = await fetch(url.toString(), { next: { revalidate: CACHE_WINDOW_SECONDS } });
-    if (!response.ok) return [];
+    // Throws rather than returning `[]`: an upstream 4xx/5xx is not "no
+    // earthquakes occurred". Swallowing it here rendered a USGS outage as a
+    // confident empty feed ("No earthquakes found") in the UI, and let the
+    // ingest job record usgs as 'online' on /about while it was failing. The
+    // `both` branch below keeps degrading gracefully via its own .catch().
+    if (!response.ok) throw new Error(`USGS upstream status: ${response.status}`);
     const data = await response.json();
     return Array.isArray(data?.features) ? data.features : [];
 }

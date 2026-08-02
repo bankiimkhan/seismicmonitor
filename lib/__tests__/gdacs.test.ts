@@ -50,7 +50,7 @@ describe('fetchGdacsFeatures', () => {
     it('filters out non-earthquake event types even if the upstream response mixes them in', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventListResponse([EQ_FEATURE, FLOOD_FEATURE])));
 
-        const features = await fetchGdacsFeatures(24, 50);
+        const features = await fetchGdacsFeatures(24, 50) ?? [];
         expect(features).toHaveLength(1);
         expect(features[0].id).toBe('gdacs-1554552');
         expect(features[0].properties.mag).toBe(6.8);
@@ -59,7 +59,7 @@ describe('fetchGdacsFeatures', () => {
     it('parses depth out of the free-text severitytext field', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventListResponse([EQ_FEATURE])));
 
-        const features = await fetchGdacsFeatures(24, 50);
+        const features = await fetchGdacsFeatures(24, 50) ?? [];
         expect(features[0].geometry.coordinates).toEqual([130.7217, 32.6817, 10]);
     });
 
@@ -71,13 +71,21 @@ describe('fetchGdacsFeatures', () => {
         expect(await fetchGdacsFeatures(24, 50)).toEqual([]);
     });
 
-    it('returns an empty array gracefully when the fetch fails', async () => {
+    // null, not [] -- the ingest job keys source health off this distinction, and
+    // an unreadable feed reported as "read it, found nothing" showed GDACS as
+    // permanently 'online' on /about no matter how long it had been down.
+    it('returns null (not an empty array) when the fetch fails', async () => {
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
-        expect(await fetchGdacsFeatures(24, 50)).toEqual([]);
+        expect(await fetchGdacsFeatures(24, 50)).toBeNull();
     });
 
-    it('returns an empty array gracefully when the upstream responds non-ok', async () => {
+    it('returns null (not an empty array) when the upstream responds non-ok', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+        expect(await fetchGdacsFeatures(24, 50)).toBeNull();
+    });
+
+    it('still returns [] when the feed was read and genuinely had no earthquakes', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventListResponse([])));
         expect(await fetchGdacsFeatures(24, 50)).toEqual([]);
     });
 });

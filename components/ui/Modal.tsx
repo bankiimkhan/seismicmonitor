@@ -17,18 +17,60 @@ interface ModalProps {
 export function Modal({ open, onClose, children, title, className = '', placement = 'center', hideCloseButton }: ModalProps) {
     const panelRef = useRef<HTMLDivElement>(null);
 
+    // Everything focusable inside the panel, in DOM order. Recomputed per Tab
+    // rather than cached: the drawer's contents (nav links) and any dialog body
+    // can change while it is open.
+    const focusableInPanel = () =>
+        Array.from(
+            panelRef.current?.querySelectorAll<HTMLElement>(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            ) ?? []
+        ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+
     useEffect(() => {
         if (!open) return;
+
+        // Restored on close so keyboard focus returns to whatever opened the
+        // dialog instead of resetting to the top of the document.
+        const previouslyFocused = document.activeElement as HTMLElement | null;
+
         const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') {
+                onClose();
+                return;
+            }
+            // Focus trap. Without this, Tab walked straight out of the panel
+            // and into the page behind the backdrop -- which for the mobile nav
+            // drawer meant keyboard and screen-reader users lost the menu as
+            // soon as they tried to move through it.
+            if (e.key !== 'Tab') return;
+            const focusable = focusableInPanel();
+            if (focusable.length === 0) {
+                e.preventDefault();
+                panelRef.current?.focus();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const active = document.activeElement;
+            if (e.shiftKey && (active === first || active === panelRef.current)) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && active === last) {
+                e.preventDefault();
+                first.focus();
+            }
         };
+
         document.addEventListener('keydown', onKeyDown);
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         panelRef.current?.focus();
+
         return () => {
             document.removeEventListener('keydown', onKeyDown);
             document.body.style.overflow = prevOverflow;
+            previouslyFocused?.focus?.();
         };
     }, [open, onClose]);
 
@@ -39,7 +81,7 @@ export function Modal({ open, onClose, children, title, className = '', placemen
     return createPortal(
         <div className="fixed inset-0 z-[100] flex">
             <div
-                className="animate-backdrop-in absolute inset-0 bg-black/50 backdrop-blur-sm"
+                className="animate-backdrop-in absolute inset-0 bg-black/75 backdrop-blur-md"
                 onClick={onClose}
                 aria-hidden="true"
             />
@@ -49,19 +91,19 @@ export function Modal({ open, onClose, children, title, className = '', placemen
                 aria-modal="true"
                 aria-label={title}
                 tabIndex={-1}
-                className={`relative z-10 flex flex-col border border-border bg-surface shadow-xl outline-none ${isLeft
+                className={`relative z-10 flex flex-col border border-border-strong/90 bg-surface/95 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(0,240,255,0.15)] outline-none ${isLeft
                         ? 'animate-drawer-in h-full w-[84vw] max-w-xs'
                         : 'animate-panel-in m-auto max-h-[85vh] w-[92vw] max-w-lg rounded-xl'
                     } ${className}`}
             >
                 {title && (
-                    <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
-                        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+                    <div className="flex flex-shrink-0 items-center justify-between border-b border-border/80 px-4 py-3 bg-surface/40">
+                        <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground">{title}</h2>
                         {!hideCloseButton && (
                             <button
                                 onClick={onClose}
                                 aria-label="Close"
-                                className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+                                className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-hover hover:text-accent"
                             >
                                 <XIcon size={16} />
                             </button>

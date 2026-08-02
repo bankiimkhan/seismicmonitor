@@ -15,7 +15,11 @@ import { useT } from '@/lib/i18n/LocaleProvider';
 export interface QuakeFeature {
     id: string;
     properties: {
-        mag: number;
+        // Nullable: /api/earthquakes passes USGS's GeoJSON through untouched,
+        // and USGS reports `mag: null` for some events (see the matching note
+        // in app/quake/[id]/page.tsx). Declaring it `number` didn't make it
+        // one -- it just meant `.toFixed()` would throw and blank the feed.
+        mag: number | null;
         place: string;
         time: number;
         url: string;
@@ -107,7 +111,10 @@ export const QuakeList: React.FC<QuakeListProps> = ({
         <div className="space-y-3">
             {liveRegion}
             {visible.map((quake, i) => {
-                const severity = getSeverity(quake.properties.mag);
+                // null severity = "no measurement", rendered neutral rather
+                // than borrowing 'stable' green, which would read as an
+                // all-clear we haven't actually been told.
+                const severity = quake.properties.mag !== null ? getSeverity(quake.properties.mag) : null;
                 const isNew = newIds?.has(quake.id);
                 const [lng, lat, depth] = quake.geometry?.coordinates ?? [];
                 const hasCoords = lat !== undefined && lng !== undefined;
@@ -127,7 +134,7 @@ export const QuakeList: React.FC<QuakeListProps> = ({
                     <div key={quake.id} className="flex gap-3">
                         {/* Timeline rail */}
                         <div className="flex flex-shrink-0 flex-col items-center pt-6">
-                            <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${SEVERITY_DOT[severity]} ${isNew ? 'live-dot' : ''}`} />
+                            <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${severity ? SEVERITY_DOT[severity] : 'bg-foreground-subtle'} ${isNew ? 'live-dot' : ''}`} />
                             {i < visible.length - 1 && <span className="mt-1 w-px flex-1 bg-border" aria-hidden="true" />}
                         </div>
 
@@ -152,8 +159,8 @@ export const QuakeList: React.FC<QuakeListProps> = ({
                                         )}
                                     </div>
                                     <div className="flex-shrink-0 text-right">
-                                        <div className={`font-mono text-3xl font-bold tabular-nums ${SEVERITY_TEXT[severity]}`}>
-                                            {quake.properties.mag.toFixed(1)}
+                                        <div className={`font-mono text-3xl font-bold tabular-nums ${severity ? SEVERITY_TEXT[severity] : 'text-foreground-subtle'}`}>
+                                            {quake.properties.mag !== null ? quake.properties.mag.toFixed(1) : '—'}
                                         </div>
                                     </div>
                                 </div>
@@ -165,7 +172,9 @@ export const QuakeList: React.FC<QuakeListProps> = ({
                                 <div className="flex items-center gap-4">
                                     <ShareButton
                                         title={quake.properties.place}
-                                        text={`M${quake.properties.mag.toFixed(1)} -- ${quake.properties.place}`}
+                                        text={quake.properties.mag !== null
+                                            ? `M${quake.properties.mag.toFixed(1)} -- ${quake.properties.place}`
+                                            : quake.properties.place}
                                         url={typeof window !== 'undefined' ? `${window.location.origin}${detailHref}` : detailHref}
                                         eventName="share_quake"
                                     />

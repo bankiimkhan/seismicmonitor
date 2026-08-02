@@ -43,7 +43,13 @@ interface NoaaStorm {
 // re-ingesting between advisories is a harmless no-op upsert of the same
 // row -- no poll gate needed the way FIRMS/EONET need one, since NHC issues
 // a new advisory (and therefore a genuinely new id) only every ~6h anyway.
-export async function fetchNoaaCyclones(): Promise<CycloneRecord[]> {
+//
+// Returns `null` when the feed could not be read, `[]` when it was read and
+// there are genuinely no active storms -- the same distinction lib/firms.ts
+// draws. Collapsing both to `[]` meant the caller recorded source health only
+// when at least one storm existed, so a broken adapter was indistinguishable
+// from a quiet season.
+export async function fetchNoaaCyclones(): Promise<CycloneRecord[] | null> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -75,7 +81,7 @@ export async function fetchNoaaCyclones(): Promise<CycloneRecord[]> {
         });
     } catch (err) {
         log.warn('NOAA NHC fetch failed', { error: String(err) });
-        return [];
+        return null;
     } finally {
         clearTimeout(timeoutId);
     }

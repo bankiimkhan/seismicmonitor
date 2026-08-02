@@ -65,7 +65,9 @@ export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, 
         const factor = sort.dir === 'asc' ? 1 : -1;
         return [...rows].sort((a, b) => {
             switch (sort.key) {
-                case 'mag': return (a.quake.properties.mag - b.quake.properties.mag) * factor;
+                // Unmeasured events sort as -Infinity so they cluster at the
+                // weak end rather than scattering on NaN comparisons.
+                case 'mag': return ((a.quake.properties.mag ?? -Infinity) - (b.quake.properties.mag ?? -Infinity)) * factor;
                 case 'place': return a.quake.properties.place.localeCompare(b.quake.properties.place) * factor;
                 case 'distance': return ((a.distance ?? Infinity) - (b.distance ?? Infinity)) * factor;
                 case 'time':
@@ -105,14 +107,14 @@ export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, 
     };
 
     return (
-        <div className={`overflow-hidden rounded-lg border border-border bg-surface shadow-xs ${className}`}>
+        <div className={`overflow-hidden rounded-2xl border border-border/80 bg-surface/90 shadow-md backdrop-blur-xl ${className}`}>
             <div className="max-h-[65vh] overflow-y-auto">
                 <table className="w-full border-collapse text-sm">
                     <thead>
-                        <tr className="sticky top-0 z-10 border-b border-border bg-surface/95 backdrop-blur">
+                        <tr className="sticky top-0 z-10 border-b border-border/90 bg-[#090b0e]/95 backdrop-blur-xl">
                             <th className="group px-4 py-3 text-left"><SortHeader label={t('quake.magnitude')} active={sort.key === 'mag'} dir={sort.dir} onClick={() => toggleSort('mag')} /></th>
                             <th className="group px-2 py-3 text-left"><SortHeader label="Location" active={sort.key === 'place'} dir={sort.dir} onClick={() => toggleSort('place')} /></th>
-                            <th className="hidden px-2 py-3 text-left md:table-cell"><span className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">{t('quake.depth')}</span></th>
+                            <th className="hidden px-2 py-3 text-left md:table-cell"><span className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">{t('quake.depth')}</span></th>
                             {hasDistance && (
                                 <th className="group hidden px-2 py-3 text-left lg:table-cell"><SortHeader label="Distance" active={sort.key === 'distance'} dir={sort.dir} onClick={() => toggleSort('distance')} /></th>
                             )}
@@ -123,7 +125,7 @@ export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, 
                     <tbody>
                         {sorted.map((row) => {
                             const { quake, depth, distance } = row;
-                            const severity = getSeverity(quake.properties.mag);
+                            const severity = quake.properties.mag !== null ? getSeverity(quake.properties.mag) : null;
                             return (
                                 <tr
                                     key={quake.id}
@@ -134,7 +136,9 @@ export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, 
                                     className="cursor-pointer border-b border-border/60 outline-none transition-colors last:border-b-0 hover:bg-surface-hover focus-visible:bg-surface-hover"
                                 >
                                     <td className="px-4 py-3">
-                                        <span className={`font-mono text-base font-bold ${SEVERITY_TEXT[severity]}`}>{quake.properties.mag.toFixed(1)}</span>
+                                        <span className={`font-mono text-base font-bold ${severity ? SEVERITY_TEXT[severity] : 'text-foreground-subtle'}`}>
+                                            {quake.properties.mag !== null ? quake.properties.mag.toFixed(1) : '—'}
+                                        </span>
                                     </td>
                                     <td className="px-2 py-3">
                                         <div className="max-w-xs truncate font-medium text-foreground">{quake.properties.place}</div>

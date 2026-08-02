@@ -27,7 +27,7 @@ describe('fetchNoaaCyclones', () => {
     it('maps classification codes to readable labels and uses already-parsed numeric coordinates', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stormsResponse([SAMPLE_STORM])));
 
-        const records = await fetchNoaaCyclones();
+        const records = (await fetchNoaaCyclones())!;
         expect(records).toHaveLength(1);
         expect(records[0].place).toBe('Hurricane Genevieve');
         expect(records[0].lat).toBe(17.9);
@@ -42,7 +42,7 @@ describe('fetchNoaaCyclones', () => {
             { ...SAMPLE_STORM, classification: 'WV' },
         ])));
 
-        const records = await fetchNoaaCyclones();
+        const records = (await fetchNoaaCyclones())!;
         expect(records[0].place).toBe('WV Genevieve');
     });
 
@@ -51,8 +51,8 @@ describe('fetchNoaaCyclones', () => {
             .mockResolvedValueOnce(stormsResponse([SAMPLE_STORM]))
             .mockResolvedValueOnce(stormsResponse([{ ...SAMPLE_STORM, lastUpdate: '2026-07-28T21:00:00.000Z' }])));
 
-        const first = (await fetchNoaaCyclones())[0].agencyNativeId;
-        const second = (await fetchNoaaCyclones())[0].agencyNativeId;
+        const first = (await fetchNoaaCyclones())![0].agencyNativeId;
+        const second = (await fetchNoaaCyclones())![0].agencyNativeId;
         expect(first).not.toBe(second);
         expect(first).toContain('ep072026');
     });
@@ -60,18 +60,26 @@ describe('fetchNoaaCyclones', () => {
     it('is idempotent for repeated fetches of the same advisory (same id both times)', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(stormsResponse([SAMPLE_STORM])));
 
-        const first = (await fetchNoaaCyclones())[0].agencyNativeId;
-        const second = (await fetchNoaaCyclones())[0].agencyNativeId;
+        const first = (await fetchNoaaCyclones())![0].agencyNativeId;
+        const second = (await fetchNoaaCyclones())![0].agencyNativeId;
         expect(first).toBe(second);
     });
 
-    it('returns an empty array gracefully when the fetch fails', async () => {
+    // null, not [] -- see the matching note in nwsTsunami.test.ts. The ingest
+    // job records source health on a successful fetch, so a quiet season and a
+    // broken adapter must not look identical.
+    it('returns null (not an empty array) when the fetch fails', async () => {
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
-        expect(await fetchNoaaCyclones()).toEqual([]);
+        expect(await fetchNoaaCyclones()).toBeNull();
     });
 
-    it('returns an empty array gracefully when the upstream responds non-ok', async () => {
+    it('returns null (not an empty array) when the upstream responds non-ok', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+        expect(await fetchNoaaCyclones()).toBeNull();
+    });
+
+    it('still returns an empty array when the feed is readable but has no active storms', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ activeStorms: [] }) }));
         expect(await fetchNoaaCyclones()).toEqual([]);
     });
 });

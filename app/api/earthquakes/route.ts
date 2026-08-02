@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchEarthquakeFeatures } from '@/lib/earthquakes';
 import { checkRateLimit, clientIpFrom } from '@/lib/rateLimit';
+import { finiteParam } from '@/lib/queryParams';
 import { resolvePreferredSource } from '@/lib/sourcePriority';
 import { log } from '@/lib/logger';
 
@@ -9,18 +10,6 @@ import { log } from '@/lib/logger';
 // are cached for 30s via Next's Data Cache, so concurrent pollers within
 // that window share one upstream request instead of hammering USGS/NCS.
 export const dynamic = 'force-dynamic';
-
-// Query params are strings, and `Number('abc')` is NaN. A NaN `hours` reaches
-// `new Date(NaN).toISOString()` inside fetchEarthquakeFeatures, which throws a
-// RangeError -- a 500 for what is really a malformed request -- and a NaN
-// lat/lng silently becomes a NaN bbox that the upstream rejects. Treat any
-// non-finite value as "not supplied" so each param falls back to its default.
-// /api/hazards and /api/trends already guard their own params this way.
-function finiteParam(raw: string | null): number | undefined {
-    if (raw === null || raw.trim() === '') return undefined;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : undefined;
-}
 
 export async function GET(req: NextRequest) {
   const ip = clientIpFrom(req.headers);

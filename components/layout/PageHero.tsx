@@ -13,11 +13,11 @@ interface PageHeroProps {
 
 export function PageHero({ title, description, icon, actions, children, className = '' }: PageHeroProps) {
     return (
-        <header className={`relative mb-8 overflow-hidden rounded-2xl border border-border/60 px-5 py-8 md:px-8 md:py-10 ${className}`}>
+        <header className={`relative mb-8 overflow-hidden rounded-2xl border border-border/80 bg-surface/60 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(0,240,255,0.1)] px-5 py-8 md:px-8 md:py-10 ${className}`}>
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
                 <div
                     className="absolute -top-24 left-1/4 h-64 w-64 rounded-full opacity-[var(--hero-glow-opacity)] blur-3xl"
-                    style={{ background: 'var(--glow-blue)' }}
+                    style={{ background: 'var(--glow-cyan)' }}
                 />
                 <div
                     className="absolute -top-16 right-1/5 h-56 w-56 rounded-full opacity-[var(--hero-glow-opacity)] blur-3xl"
@@ -28,7 +28,7 @@ export function PageHero({ title, description, icon, actions, children, classNam
             <Reveal variant="fade-up" className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
                 <div className="flex items-start gap-4">
                     {icon && (
-                        <span className="hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent md:flex">
+                        <span className="hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent shadow-[0_0_15px_rgba(0,240,255,0.2)] md:flex">
                             {icon}
                         </span>
                     )}

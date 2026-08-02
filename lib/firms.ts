@@ -85,10 +85,27 @@ export function parseFirmsCsv(csv: string): WildfireHotspot[] {
     return hotspots;
 }
 
-/** Returns `null` (distinct from `[]`) when NASA_FIRMS_MAP_KEY isn't
- * configured, so the caller can skip this source entirely -- no
- * scraper_health row gets written until it's actually set up, rather than
- * showing a permanent, confusing "fallback" status on /about. */
+/** Whether NASA_FIRMS_MAP_KEY is present. Callers check this *before* doing any
+ * scheduling work for this source: without it `fetchFirmsHotspots` can only
+ * return null, and since no scraper_health row is written in that case, any
+ * poll gate keyed on this source's last success stays permanently open and
+ * re-attempts a doomed fetch on every cycle. */
+export function isFirmsConfigured(): boolean {
+    return Boolean(process.env.NASA_FIRMS_MAP_KEY);
+}
+
+/** Returns `null` (distinct from `[]`) when this source could not be read at
+ * all -- either NASA_FIRMS_MAP_KEY isn't configured, or the fetch itself
+ * failed. `[]` means the feed WAS read and genuinely reported no hotspots.
+ *
+ * The failure path used to return `[]` too, which told the caller the poll had
+ * succeeded: app/../ingest recorded `firms` as online and stamped
+ * scraper_health.last_success_at -- the exact column FIRMS_POLL_INTERVAL_MS
+ * gates on. So one transient upstream failure silently suppressed wildfire
+ * ingest for the following 2 hours while /about reported the source healthy,
+ * and a persistently broken adapter looked identical to a quiet fire season.
+ * Same null-vs-empty distinction lib/noaaCyclones.ts and lib/nwsTsunami.ts
+ * draw, for the same reason. */
 export async function fetchFirmsHotspots(dayRange: 1 | 2 | 3 = 1): Promise<WildfireHotspot[] | null> {
     const key = process.env.NASA_FIRMS_MAP_KEY;
     if (!key) return null;
@@ -104,7 +121,7 @@ export async function fetchFirmsHotspots(dayRange: 1 | 2 | 3 = 1): Promise<Wildf
         return parseFirmsCsv(csv);
     } catch (err) {
         log.warn('FIRMS fetch failed', { error: String(err) });
-        return [];
+        return null;
     } finally {
         clearTimeout(timeoutId);
     }

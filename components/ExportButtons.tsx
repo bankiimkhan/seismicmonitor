@@ -7,7 +7,10 @@ import { track } from '@/lib/analytics';
 
 interface QuakeLike {
     id: string;
-    properties: { mag: number; place: string; time: number; url: string };
+    /** `mag` is nullable for the same reason it is everywhere else -- USGS
+     * reports no magnitude for some events. It exports as an empty cell rather
+     * than a fabricated 0. */
+    properties: { mag: number | null; place: string; time: number; url: string };
     geometry: { coordinates: [number, number, number] };
 }
 

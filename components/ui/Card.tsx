@@ -23,7 +23,7 @@ export const Card: React.FC<CardProps> = ({
 }) => {
     return (
         <Tag
-            className={`rounded-lg border bg-surface/75 backdrop-blur-md ${elevated ? 'border-border-strong shadow-lg' : 'border-border shadow-sm'} ${PADDING[padding]} ${interactive ? 'hover-lift cursor-pointer hover:border-accent/40' : ''} ${className}`}
+            className={`rounded-2xl border bg-surface/90 backdrop-blur-xl transition-all duration-[var(--duration-slow)] ${elevated ? 'border-border-strong/90 shadow-[0_8px_32px_rgba(0,0,0,0.9),0_0_20px_rgba(0,240,255,0.12)]' : 'border-border/80 shadow-md'} ${PADDING[padding]} ${interactive ? 'hover-lift cursor-pointer hover:border-accent/50 hover:shadow-[0_0_22px_rgba(0,240,255,0.25)]' : ''} ${className}`}
         >
             {children}
         </Tag>

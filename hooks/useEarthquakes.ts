@@ -5,7 +5,13 @@ import { useOnlineStatus } from './useOnlineStatus';
 interface QuakeFeature {
     id: string;
     properties: {
-        mag: number;
+        // Nullable, matching components/QuakeList.tsx's exported QuakeFeature and
+        // the detail page: /api/earthquakes passes USGS's GeoJSON straight
+        // through and USGS reports `mag: null` for some events. Declaring it
+        // `number` here didn't make it one -- it just hid the null from every
+        // consumer of this hook, and `maxFeltDistanceKm(null)` coerced it to
+        // magnitude 0 (see app/earthquake/local/page.tsx).
+        mag: number | null;
         place: string;
         time: number;
         url: string;
@@ -73,8 +79,12 @@ export const useEarthquakes = (params: UseEarthquakesParams) => {
         try {
             const queryParams = new URLSearchParams();
             if (source) queryParams.set('source', source);
-            if (lat) queryParams.set('lat', String(lat));
-            if (lng) queryParams.set('lng', String(lng));
+            // `!== undefined`, not truthiness: lat/lng are numbers, and a
+            // truthy test silently dropped an exact 0 -- the equator and the
+            // prime meridian -- turning a local query into a worldwide one with
+            // no indication. hooks/useHazardEvents.ts already guards this way.
+            if (lat !== undefined) queryParams.set('lat', String(lat));
+            if (lng !== undefined) queryParams.set('lng', String(lng));
             if (range) queryParams.set('range', range);
             if (hours) queryParams.set('hours', hours);
             if (limit) queryParams.set('limit', limit);
@@ -102,7 +112,12 @@ export const useEarthquakes = (params: UseEarthquakesParams) => {
                     for (const f of features) {
                         if (!knownIdsRef.current.has(f.id)) fresh.add(f.id);
                     }
-                    if (fresh.size > 0) setNewIds(fresh);
+                    // Set unconditionally, including to an empty set: only
+                    // assigning when `fresh.size > 0` left the previous batch's
+                    // ids marked "new" indefinitely, so the highlight and its
+                    // screen-reader announcement stuck to stale rows until some
+                    // later poll happened to bring something newer.
+                    setNewIds(fresh);
                 }
                 knownIdsRef.current = new Set(features.map((f) => f.id));
 

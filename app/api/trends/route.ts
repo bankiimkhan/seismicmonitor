@@ -1,60 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { checkRateLimit, clientIpFrom } from '@/lib/rateLimit';
+import { finiteParam, finiteParamOr } from '@/lib/queryParams';
 import { log } from '@/lib/logger';
 import { regionForPoint } from '@/lib/regions';
 
 export const dynamic = 'force-dynamic';
 
-// Aggregated stats over the `hazard_events` archive (populated by
-// /api/ingest). Runs server-side with the service-role key since that table
-// has no public RLS policy -- see the init_schema migration for why.
+interface TrendRow {
+    magnitude: number | null;
+    place: string | null;
+    canonical_time: string;
+    lat: number;
+    lng: number;
+}
+
+// PostgREST caps an unbounded select at max-rows (1000 on Supabase), silently.
+// This route reduces its rows in JS -- it has to, because the region bucket
+// comes from regionForPoint (lib/regions.ts), which is the single source of
+// truth for that mapping and isn't worth duplicating in SQL -- so it has to
+// page explicitly rather than assume one select returns everything. Without
+// this, trends would start dropping its newest data the moment one hazard type
+// crossed 1000 rows in the window, with no error anywhere.
+const PAGE_SIZE = 1000;
+// Bounds worst-case subrequests per invocation (Workers Free allows 50) and
+// caps the reduce below. Far above the current table size.
+const MAX_PAGES = 10;
+
+async function fetchTrendRows(
+    admin: SupabaseClient,
+    hazardTypes: string[],
+    since: string
+): Promise<TrendRow[]> {
+    const rows: TrendRow[] = [];
+    for (let page = 0; page < MAX_PAGES; page++) {
+        const from = page * PAGE_SIZE;
+        const { data, error } = await admin
+            .from('hazard_events')
+            .select('magnitude, place, canonical_time, lat, lng')
+            .in('hazard_type', hazardTypes)
+            .gte('canonical_time', since)
+            .order('canonical_time', { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+
+        const batch = (data ?? []) as TrendRow[];
+        rows.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+    }
+    return rows;
+}
+
+// Aggregated stats over the `hazard_events` archive. Runs server-side with the
+// service-role key since that table has no public RLS policy -- see the
+// init_schema migration for why.
 //
-// Generalized from an earlier earthquake-only version -- `hazardType`
-// accepts a comma-separated list (e.g. `cyclone,severe_weather`), same
-// convention already used by /api/hazards, and defaults to 'earthquake' so
-// the original caller (no `hazardType` param at all) is unaffected.
+// `hazardType` accepts a comma-separated list (e.g. `cyclone,severe_weather`),
+// same convention as /api/hazards, and defaults to 'earthquake'.
 //
 // Optional lat/lng scopes the result to the caller's auto-detected region
-// (lib/regions.ts) -- region is computed here from the table's existing
-// lat/lng columns rather than stored, so no migration was needed. Omitting
-// lat/lng returns the unfiltered worldwide aggregate (used by every trends
-// page before location is resolved/granted).
+// (lib/regions.ts) -- computed here from the table's existing lat/lng columns
+// rather than stored, so no migration was needed. Omitting lat/lng returns the
+// unfiltered worldwide aggregate.
 export async function GET(req: NextRequest) {
+    const ip = clientIpFrom(req.headers);
+    const { ok, remaining, resetMs } = checkRateLimit(`trends:${ip}`);
+    if (!ok) {
+        log.warn('trends route rate limited', { ip });
+        return NextResponse.json(
+            { error: 'Too many requests' },
+            { status: 429, headers: { 'Retry-After': String(Math.ceil(resetMs / 1000)) } }
+        );
+    }
+
     const { searchParams } = new URL(req.url);
-    // Number.isFinite guard -- a non-numeric `?days=` would otherwise
-    // propagate NaN through Math.max/Math.min, and
-    // `new Date(NaN).toISOString()` throws an uncaught RangeError (this
-    // used to run before the try block even started).
-    const daysParam = Number(searchParams.get('days') || '30');
-    const days = Math.min(365, Math.max(1, Number.isFinite(daysParam) ? daysParam : 30));
+    const days = Math.min(365, Math.max(1, finiteParamOr(searchParams.get('days'), 30)));
     const hazardTypeParam = searchParams.get('hazardType') || 'earthquake';
     const hazardTypes = hazardTypeParam.split(',').map((t) => t.trim()).filter(Boolean);
-    // regionForPoint falls back to the *nearest* region by centre distance,
-    // and every distance to NaN compares false -- so a non-numeric
-    // `?lat=`/`?lng=` doesn't error, it silently scopes the whole response to
-    // REGIONS[0] (South Asia). Only treat the point as given when it's real.
-    const finiteParam = (raw: string | null): number | undefined => {
-        if (raw === null || raw.trim() === '') return undefined;
-        const value = Number(raw);
-        return Number.isFinite(value) ? value : undefined;
-    };
+    // regionForPoint falls back to the *nearest* region by centre distance, and
+    // every distance to NaN compares false -- so a non-numeric `?lat=`/`?lng=`
+    // wouldn't error, it would silently scope the whole response to REGIONS[0]
+    // (South Asia). Only treat the point as given when it's real.
     const lat = finiteParam(searchParams.get('lat'));
     const lng = finiteParam(searchParams.get('lng'));
     const userRegion = lat !== undefined && lng !== undefined ? regionForPoint(lat, lng) : null;
 
     try {
         const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-        const admin = getSupabaseAdmin();
-        const { data, error } = await admin
-            .from('hazard_events')
-            .select('magnitude, place, canonical_time, lat, lng')
-            .in('hazard_type', hazardTypes)
-            .gte('canonical_time', since)
-            .order('canonical_time', { ascending: true });
+        const allRows = await fetchTrendRows(getSupabaseAdmin(), hazardTypes, since);
 
-        if (error) throw error;
-
-        const allRows = data ?? [];
         const rows = userRegion
             ? allRows.filter((r) => r.lat !== null && r.lng !== null && regionForPoint(r.lat, r.lng).id === userRegion.id)
             : allRows;
@@ -63,7 +98,7 @@ export async function GET(req: NextRequest) {
         // severity data at all (volcano/landslide/tsunami all report
         // magnitude: null) -- same "don't fake a measurement" convention
         // /api/hazards already uses.
-        const withValue = rows.filter((r): r is typeof r & { magnitude: number } => r.magnitude !== null);
+        const withValue = rows.filter((r): r is TrendRow & { magnitude: number } => r.magnitude !== null);
         const avgValue = withValue.length > 0
             ? withValue.reduce((sum, r) => sum + r.magnitude, 0) / withValue.length
             : null;
@@ -94,7 +129,7 @@ export async function GET(req: NextRequest) {
             avgValue,
             byDay: [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([day, count]) => ({ day, count })),
             topRegions,
-        });
+        }, { headers: { 'X-RateLimit-Remaining': String(remaining) } });
     } catch (err) {
         log.error('trends route failed', { error: String(err), hazardType: hazardTypeParam });
         return NextResponse.json({ error: 'Server Error' }, { status: 500 });

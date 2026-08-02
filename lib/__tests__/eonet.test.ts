@@ -32,7 +32,7 @@ describe('fetchEonetRecords', () => {
             }],
         }));
 
-        const records = await fetchEonetRecords();
+        const records = await fetchEonetRecords() ?? [];
         const wildfire = records.find((r) => r.agencyNativeId.includes('EONET_1'));
         const volcano = records.find((r) => r.agencyNativeId.includes('EONET_2'));
 
@@ -52,7 +52,7 @@ describe('fetchEonetRecords', () => {
             }],
         }));
 
-        const records = await fetchEonetRecords();
+        const records = await fetchEonetRecords() ?? [];
         expect(records.find((r) => r.agencyNativeId.includes('EONET_POLY'))).toBeUndefined();
     });
 
@@ -68,7 +68,7 @@ describe('fetchEonetRecords', () => {
             }],
         }));
 
-        const records = await fetchEonetRecords();
+        const records = await fetchEonetRecords() ?? [];
         const stormRecords = records.filter((r) => r.agencyNativeId.startsWith('eonet-EONET_STORM'));
         expect(stormRecords).toHaveLength(2);
         expect(new Set(stormRecords.map((r) => r.agencyNativeId)).size).toBe(2); // distinct ids per point
@@ -86,7 +86,25 @@ describe('fetchEonetRecords', () => {
         }));
 
         const records = await fetchEonetRecords();
-        expect(records.some((r) => r.agencyNativeId.includes('EONET_OK'))).toBe(true);
-        expect(records.some((r) => r.hazardType === 'wildfire')).toBe(false);
+        // A partial failure still returns the categories that DID come back --
+        // discarding real volcano/storm data because one category broke would be
+        // worse than the gap it papers over.
+        expect(records).not.toBeNull();
+        expect(records!.some((r) => r.agencyNativeId.includes('EONET_OK'))).toBe(true);
+        expect(records!.some((r) => r.hazardType === 'wildfire')).toBe(false);
+    });
+
+    // null, not [] -- the ingest job stamps scraper_health.last_success_at on a
+    // non-null result, and that column is what EONET_POLL_INTERVAL_MS gates on.
+    // Reporting a total outage as "read it, found nothing" suppressed the retry
+    // for an hour and left /about showing the source as healthy.
+    it('returns null when every category fetch fails', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network error'); }));
+        expect(await fetchEonetRecords()).toBeNull();
+    });
+
+    it('returns [] (not null) when every category was read and reported nothing', async () => {
+        vi.stubGlobal('fetch', mockFetchByCategory({}));
+        expect(await fetchEonetRecords()).toEqual([]);
     });
 });

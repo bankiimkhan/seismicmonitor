@@ -67,7 +67,12 @@ async function centroidFromFirstZone(ugc: string, signal: AbortSignal): Promise<
     }
 }
 
-export async function fetchTsunamiAlerts(): Promise<TsunamiAlert[]> {
+// Returns `null` when the feed could not be read, `[]` when it was read and
+// there are genuinely no active alerts -- the same distinction lib/firms.ts
+// draws. Collapsing both to `[]` meant the caller recorded source health only
+// when an alert existed, and tsunami alerts are rare, so no `nws-tsunami` row
+// was ever written and /about could never show this source at all.
+export async function fetchTsunamiAlerts(): Promise<TsunamiAlert[] | null> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -123,7 +128,7 @@ export async function fetchTsunamiAlerts(): Promise<TsunamiAlert[]> {
         return alerts;
     } catch (err) {
         log.warn('NWS tsunami fetch failed', { error: String(err) });
-        return [];
+        return null;
     } finally {
         clearTimeout(timeoutId);
     }

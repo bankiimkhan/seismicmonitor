@@ -34,8 +34,14 @@ export function LocationPrompt({ status, onAllow, onManual, title = 'See earthqu
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
                         <p className="font-medium text-foreground">{title}</p>
+                        {/* This used to claim location was "never sent anywhere
+                            but this request", which wasn't true: app/page.tsx
+                            reverse-geocodes the point through BigDataCloud to
+                            name the country and pick an emergency number. */}
                         <p className="mt-1 text-sm text-foreground-muted">
-                            We&apos;ll use your location only to filter what&apos;s shown -- it&apos;s never sent anywhere but this request.
+                            Used to filter what&apos;s shown, and sent to BigDataCloud to name your
+                            country and look up its emergency number. It stays in your browser
+                            otherwise — no account, no tracking.
                         </p>
                     </div>
                     <div className="flex flex-shrink-0 gap-2">

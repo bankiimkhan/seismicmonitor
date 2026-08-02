@@ -18,6 +18,13 @@ npm install
 npm run dev                   # http://localhost:3000
 ```
 
+**All three Supabase values are required**, including
+`SUPABASE_SERVICE_ROLE_KEY`. It is not optional for local work: `/api/hazards`,
+`/api/trends`, `/api/cyclone-history`, `/api/quake/[id]` and `/api/health` all
+read through the service role (those tables have RLS on with no public policy),
+so without it every one of them returns 500 and most of the app renders its
+error states. Grab it from the Supabase dashboard → Project Settings → API.
+
 `next dev` is the fast path. `next.config.ts` calls
 `initOpenNextCloudflareForDev()`, so the bindings declared in `wrangler.jsonc`
 resolve here too.
@@ -151,17 +158,50 @@ dropped and every request re-fetches upstream.
 | `npm run deploy`     | Adapter build + deploy to Cloudflare               |
 | `npm run upload`     | Adapter build + upload a version without releasing |
 | `npm run sync:edge`  | Regenerate `supabase/functions/_shared` from `lib/` |
+| `npm run sync:maplibre` | Re-copy maplibre's worker/shared dist into `public/` |
 | `npm run cf-typegen` | Regenerate `cloudflare-env.d.ts` from bindings     |
 | `npm test`           | Vitest                                            |
 | `npm run typecheck`  | `tsc --noEmit`                                    |
 
 ## Known limitations
 
-- **`lib/rateLimit.ts` is per-isolate.** It was already per-instance on Vercel;
-  on Workers the same caveat applies, so the effective ceiling is higher than
-  `maxRequests` under concurrency. A Durable Object would make it global.
+- **Landslide has no working source.** NASA EONET's `landslides` category is the
+  only feed wired for that hazard type and it publishes nothing — zero events at
+  `status=open` and zero over a 365-day window. The section stays in place but
+  carries a standing notice (`coverageNotice` in `lib/hazardConfig.ts`) so an
+  empty list can't be misread as "no landslides". Fixing this properly means
+  adding a different source.
+- **FIRMS wildfire hotspots need a key.** Without `NASA_FIRMS_MAP_KEY` on the
+  Supabase project, wildfire coverage is EONET incidents only — no per-pixel
+  satellite detections. The ingest job logs a warning and skips the source
+  rather than retrying a doomed fetch every cycle:
+  ```bash
+  npx supabase secrets set NASA_FIRMS_MAP_KEY=... --project-ref <ref>
+  ```
+- **Tsunami is unexercised.** NOAA/NWS issues these rarely, so the path has
+  never processed a live alert. Source health is now recorded on every
+  successful fetch (not only when an alert exists), so `/about` will show the
+  adapter's status either way.
+- **`lib/rateLimit.ts` is per-isolate.** Every route now goes through it, but
+  the counter lives in one isolate's memory, so the effective ceiling is higher
+  than `maxRequests` under concurrency. A Durable Object would make it global.
 - **Custom analytics events are a no-op.** Cloudflare Web Analytics covers
   pageviews and Web Vitals but has no custom-event API, so `track()` in
-  `lib/analytics.ts` currently drops `first_visit` / `return_visit`.
+  `lib/analytics.ts` currently drops `first_visit` / `return_visit`. The wrapper
+  and its call sites are kept deliberately, so adding a provider stays a
+  one-file change.
 - **`response.json()` is untyped at ~30 call sites** in `lib/` and `hooks/`.
   Harmless today, but they destructure unvalidated JSON directly.
+- **i18n ships one locale.** `lib/i18n/` has the provider and dictionary but
+  only `en`, and nothing calls `setLocale`. It is scaffolding, not a feature.
+
+## Row limits
+
+PostgREST caps an unbounded `select` at `max-rows` (1000 on Supabase) **without
+erroring**, so any route that reduces rows in JS has to account for it:
+
+- `/api/cyclone-history` aggregates in Postgres via the
+  `cyclone_storm_summaries` function — 20k+ track points never cross the wire.
+- `/api/trends` pages explicitly (`PAGE_SIZE`/`MAX_PAGES`), because its region
+  bucket comes from `regionForPoint` and isn't worth duplicating in SQL.
+- `/api/hazards` clamps its `limit` to 1000, which is the real ceiling anyway.

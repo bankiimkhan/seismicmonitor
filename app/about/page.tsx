@@ -13,16 +13,28 @@ interface HealthSource { source: string; status: string; checked_at: string }
 export default function AboutPage() {
     const { t } = useT();
     const toast = useToast();
-    const [health, setHealth] = useState<HealthSource[]>([]);
+    // `null` while in flight, `'error'` when the health store is unreachable.
+    // Previously this was an array that stayed empty on failure and rendered a
+    // loading ellipsis forever -- /api/health returned 200 with `sources: []`
+    // even when Supabase was down, so the page could never tell the two apart.
+    const [health, setHealth] = useState<HealthSource[] | null>(null);
+    const [healthError, setHealthError] = useState(false);
     const [copied, setCopied] = useState(false);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bd-earthquakes.vercel.app';
+    // Falls back to the deployed Worker origin, not the long-dead Vercel host
+    // this project was originally on.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://seismicmonitor.contact-ahmedsakib.workers.dev';
     const embedSnippet = `<iframe src="${appUrl}/embed" style="width:100%;height:520px;border:0;border-radius:8px" loading="lazy"></iframe>`;
 
     useEffect(() => {
-        fetch('/api/health').then((r) => r.json()).then((d) => setHealth(d.sources ?? [])).catch(() => {});
+        let cancelled = false;
+        fetch('/api/health')
+            .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+            .then((d) => { if (!cancelled) setHealth(d.sources ?? []); })
+            .catch(() => { if (!cancelled) setHealthError(true); });
+        return () => { cancelled = true; };
     }, []);
 
-    const ncs = health.find((h) => h.source === 'ncs');
+    const ncs = health?.find((h) => h.source === 'ncs');
 
     const copySnippet = async () => {
         try {
@@ -45,16 +57,39 @@ export default function AboutPage() {
                     <ul className="space-y-3 text-sm text-foreground-muted">
                         <li>{t('about.usgs')}</li>
                         <li>{t('about.ncs')}</li>
+                        <li>{t('about.gdacs')}</li>
+                        <li>{t('about.eonet')}</li>
+                        <li>{t('about.firms')}</li>
+                        <li>{t('about.noaa')}</li>
+                        <li>{t('about.nws')}</li>
+                        <li>{t('about.ibtracs')}</li>
                     </ul>
-                    <p className="mt-3 border-t border-border pt-3 text-sm text-foreground-muted">{t('about.fallback')}</p>
+                    <p className="mt-3 border-t border-border pt-3 text-sm text-warning">{t('about.landslideGap')}</p>
+                    <p className="mt-3 text-sm text-foreground-muted">{t('about.fallback')}</p>
                     <p className="mt-3 text-sm text-foreground-muted">{t('about.refresh')}</p>
+                </Card>
+
+                <Card>
+                    <p className="mb-1 text-sm font-semibold text-foreground">{t('about.privacy')}</p>
+                    <p className="text-sm text-foreground-muted">{t('about.privacyDesc')}</p>
                 </Card>
 
                 <Card>
                     <p className="mb-3 text-sm font-semibold text-foreground">{t('about.health')}</p>
                     <div className="space-y-2">
-                        {health.length === 0 && <p className="text-sm text-foreground-subtle">…</p>}
-                        {health.map((h) => (
+                        {healthError && (
+                            <p role="alert" className="text-sm text-warning">
+                                Source health is unavailable right now — this says nothing about the
+                                feeds themselves, only that we couldn&apos;t read their status.
+                            </p>
+                        )}
+                        {!healthError && health === null && (
+                            <p className="text-sm text-foreground-subtle">Checking source health…</p>
+                        )}
+                        {!healthError && health?.length === 0 && (
+                            <p className="text-sm text-foreground-subtle">No source health has been recorded yet.</p>
+                        )}
+                        {(health ?? []).map((h) => (
                             <div key={h.source} className="flex items-center justify-between text-sm">
                                 <span className="uppercase text-foreground-muted">{h.source}</span>
                                 <span className={`inline-flex items-center gap-1.5 ${h.status === 'online' ? 'text-success' : 'text-warning'}`}>

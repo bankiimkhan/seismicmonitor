@@ -1,155 +1,103 @@
 @import "tailwindcss";
 
 :root {
-  /* Light theme (default fallback) */
-  --background: #ffffff;
-  --surface: #f7f8fa;
-  --surface-hover: #eef0f3;
-  --border: #e4e6eb;
-  --border-strong: #d1d5db;
-  --foreground: #0f1115;
-  --foreground-muted: #6b7280;
-  --foreground-subtle: #9ca3af;
+  /* Matte Black / Developer Dashboard Cyberpunk Palette */
+  --background: #060709;
+  --surface: #0e1117;
+  --surface-hover: #161c28;
+  --border: #1c2436;
+  --border-strong: #2a3650;
+  --foreground: #f3f4f6;
+  --foreground-muted: #9ca3af;
+  --foreground-subtle: #6b7280;
 
-  --accent: #4f6df5;
-  --accent-hover: #3d5ae0;
-  --accent-foreground: #ffffff;
+  --accent: #00f0ff;
+  --accent-hover: #33f3ff;
+  --accent-foreground: #060709;
+  --accent-subtle: rgba(0, 240, 255, 0.12);
 
-  /* Text colors darkened from the more saturated brand shades (#16a34a /
-     #d97706 / #dc2626) to meet WCAG AA (4.5:1) against their pale *-bg
-     tints at badge text sizes -- the original shades measured ~2.7-4.1:1
-     here. Backgrounds keep the same low-alpha tint; dark theme below
-     already passes AA as-is (bright text on a near-black tint) and is
-     left unchanged. */
-  --success: #166534;
-  --success-bg: #16a34a1a;
-  --warning: #92400e;
-  --warning-bg: #d977061a;
-  --danger: #991b1b;
-  --danger-bg: #dc26261a;
-
-  --accent-subtle: #4f6df514;
+  --success: #00ff66;
+  --success-bg: rgba(0, 255, 102, 0.12);
+  --warning: #ffb700;
+  --warning-bg: rgba(255, 183, 0, 0.12);
+  --danger: #ff2a6d;
+  --danger-bg: rgba(255, 42, 109, 0.14);
 
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 20px;
 
-  --shadow-xs: 0 1px 1px rgba(15, 17, 21, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
-  --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
-  --shadow-md: 0 4px 16px rgba(15, 17, 21, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
-  --shadow-lg: 0 12px 32px rgba(15, 17, 21, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
-  --shadow-xl: 0 24px 64px rgba(15, 17, 21, 0.18), inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 240, 255, 0.05);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.85), 0 0 16px -3px rgba(0, 240, 255, 0.12);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 28px -2px rgba(0, 136, 255, 0.18);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.95), 0 0 44px 0 rgba(168, 85, 247, 0.2);
 
-  /* Glow accents -- decorative/ambient use only (background layers, hero glows,
-     spotlight cursor). Never used for text/icon color, so the WCAG-AA audit on
-     --accent and the status colors above is unaffected. */
-  --glow-cyan: #00e5ff;
-  --glow-blue: #3b82f6;
-  --glow-purple: #7c3aed;
-  --glow-teal: #22d3ee;
+  --glow-cyan: #00f0ff;
+  --glow-blue: #0088ff;
+  --glow-purple: #a855f7;
+  --glow-lime: #00ff66;
 
-  --ambient-mesh-opacity: 0.05;
-  --ambient-blob-opacity: 0.06;
-  --ambient-grid-opacity: 0.02;
-  --ambient-noise-opacity: 0.015;
-  --hero-glow-opacity: 0.1;
+  --ambient-mesh-opacity: 0.2;
+  --ambient-blob-opacity: 0.22;
+  --ambient-grid-opacity: 0.05;
+  --ambient-noise-opacity: 0.02;
+  --hero-glow-opacity: 0.25;
 
-  --chart-1: #4f6df5;
-  --chart-2: #16a34a;
-  --chart-3: #d97706;
-  --chart-4: #7c3aed;
-  --chart-5: #db2777;
+  --chart-1: #00f0ff;
+  --chart-2: #00ff66;
+  --chart-3: #ffb700;
+  --chart-4: #a855f7;
+  --chart-5: #ff2a6d;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --duration-fast: 120ms;
   --duration-base: 200ms;
-  --duration-slow: 320ms;
+  --duration-slow: 300ms;
 }
 
-:root[data-theme="dark"] {
-  --background: #0a0b0d;
-  --surface: #131519;
-  --surface-hover: #1b1e24;
-  --border: #23262d;
-  --border-strong: #33373f;
-  --foreground: #eef0f3;
-  --foreground-muted: #9aa1ac;
+:root[data-theme="dark"],
+:root[data-theme="light"] {
+  --background: #060709;
+  --surface: #0e1117;
+  --surface-hover: #161c28;
+  --border: #1c2436;
+  --border-strong: #2a3650;
+  --foreground: #f3f4f6;
+  --foreground-muted: #9ca3af;
   --foreground-subtle: #6b7280;
 
-  --accent: #6d8bff;
-  --accent-hover: #839cff;
-  --accent-foreground: #0a0b0d;
-  --accent-subtle: #6d8bff1f;
+  --accent: #00f0ff;
+  --accent-hover: #33f3ff;
+  --accent-foreground: #060709;
+  --accent-subtle: rgba(0, 240, 255, 0.12);
 
-  --success: #34d399;
-  --success-bg: #34d3991a;
-  --warning: #fbbf24;
-  --warning-bg: #fbbf241a;
-  --danger: #f87171;
-  --danger-bg: #f871711a;
+  --success: #00ff66;
+  --success-bg: rgba(0, 255, 102, 0.12);
+  --warning: #ffb700;
+  --warning-bg: rgba(255, 183, 0, 0.12);
+  --danger: #ff2a6d;
+  --danger-bg: rgba(255, 42, 109, 0.14);
 
-  --chart-1: #6d8bff;
-  --chart-2: #34d399;
-  --chart-3: #fbbf24;
-  --chart-4: #a78bfa;
-  --chart-5: #f472b6;
+  --chart-1: #00f0ff;
+  --chart-2: #00ff66;
+  --chart-3: #ffb700;
+  --chart-4: #a855f7;
+  --chart-5: #ff2a6d;
 
-  --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.24), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
-  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 240, 255, 0.05);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.85), 0 0 16px -3px rgba(0, 240, 255, 0.12);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 28px -2px rgba(0, 136, 255, 0.18);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.95), 0 0 44px 0 rgba(168, 85, 247, 0.2);
 
-  --ambient-mesh-opacity: 0.16;
-  --ambient-blob-opacity: 0.18;
-  --ambient-grid-opacity: 0.04;
-  --ambient-noise-opacity: 0.03;
-  --hero-glow-opacity: 0.22;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #0a0b0d;
-    --surface: #131519;
-    --surface-hover: #1b1e24;
-    --border: #23262d;
-    --border-strong: #33373f;
-    --foreground: #eef0f3;
-    --foreground-muted: #9aa1ac;
-    --foreground-subtle: #6b7280;
-
-    --accent: #6d8bff;
-    --accent-hover: #839cff;
-    --accent-foreground: #0a0b0d;
-    --accent-subtle: #6d8bff1f;
-
-    --success: #34d399;
-    --success-bg: #34d3991a;
-    --warning: #fbbf24;
-    --warning-bg: #fbbf241a;
-    --danger: #f87171;
-    --danger-bg: #f871711a;
-
-    --chart-1: #6d8bff;
-    --chart-2: #34d399;
-    --chart-3: #fbbf24;
-    --chart-4: #a78bfa;
-    --chart-5: #f472b6;
-
-    --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.24), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
-    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
-    --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
-
-    --ambient-mesh-opacity: 0.16;
-    --ambient-blob-opacity: 0.18;
-    --ambient-grid-opacity: 0.04;
-    --ambient-noise-opacity: 0.03;
-    --hero-glow-opacity: 0.22;
-  }
+  --ambient-mesh-opacity: 0.2;
+  --ambient-blob-opacity: 0.22;
+  --ambient-grid-opacity: 0.05;
+  --ambient-noise-opacity: 0.02;
+  --hero-glow-opacity: 0.25;
 }
 
 @theme inline {
@@ -256,13 +204,13 @@ body {
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-/* Hover-lift: used on interactive cards/rows across the app */
+/* Cyber Hover-lift: flat border and soft glow transition without 3D lift */
 .hover-lift {
-  transition: transform var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), background-color var(--duration-base) var(--ease-out);
 }
 .hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+  border-color: rgba(0, 240, 255, 0.45);
 }
 
 /* Overlay primitives: Modal / Dropdown / Tooltip */
@@ -271,12 +219,12 @@ body {
   to { opacity: 1; }
 }
 @keyframes overlay-panel-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes overlay-pop-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .animate-backdrop-in { animation: overlay-backdrop-in var(--duration-base) var(--ease-out) both; }
 .animate-panel-in { animation: overlay-panel-in var(--duration-base) var(--ease-out) both; }
@@ -291,8 +239,8 @@ body {
 
 /* Toasts */
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .animate-toast-in { animation: toast-in var(--duration-base) var(--ease-out) both; }
 
@@ -313,8 +261,8 @@ body {
 
 /* Page transition */
 @keyframes page-fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .animate-page-in {
   animation: page-fade-in var(--duration-slow) var(--ease-out) both;
@@ -327,43 +275,42 @@ body {
 
 /* Count-up number tween */
 @keyframes count-pop {
-  0% { opacity: 0.4; transform: translateY(2px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
 }
 .animate-count-pop {
   animation: count-pop var(--duration-fast) var(--ease-out) both;
 }
 
-/* Ambient background layers (components/effects/AmbientBackground.tsx) --
-   transform-only keyframes so they stay on the compositor thread. */
+/* Ambient background layers (components/effects/AmbientBackground.tsx) -- 2D flat layer motion */
 @keyframes mesh-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-  33% { transform: translate3d(2%, -3%, 0) rotate(2deg) scale(1.05); }
-  66% { transform: translate3d(-2%, 2%, 0) rotate(-2deg) scale(1.02); }
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(2%, -3%); }
+  66% { transform: translate(-2%, 2%); }
 }
 .animate-mesh-drift {
   animation: mesh-drift 48s var(--ease-in-out) infinite;
 }
 
 @keyframes float-blob-a {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(4%, 6%, 0) scale(1.08); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(4%, 6%); }
 }
 @keyframes float-blob-b {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-5%, 4%, 0) scale(1.1); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-5%, 4%); }
 }
 @keyframes float-blob-c {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(3%, -5%, 0) scale(1.06); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(3%, -5%); }
 }
 .animate-float-blob-a { animation: float-blob-a 38s var(--ease-in-out) infinite; }
 .animate-float-blob-b { animation: float-blob-b 46s var(--ease-in-out) infinite; }
 .animate-float-blob-c { animation: float-blob-c 42s var(--ease-in-out) infinite; }
 
 @keyframes particle-float {
-  0%, 100% { transform: translate3d(0, 0, 0); opacity: var(--particle-opacity, 0.5); }
-  50% { transform: translate3d(0, -18px, 0); opacity: calc(var(--particle-opacity, 0.5) * 0.4); }
+  0%, 100% { transform: translate(0, 0); opacity: var(--particle-opacity, 0.5); }
+  50% { transform: translate(0, -14px); opacity: calc(var(--particle-opacity, 0.5) * 0.4); }
 }
 
 /* Scroll-reveal primitive (hooks/useInView.ts + components/effects/Reveal.tsx) */
@@ -389,6 +336,37 @@ body {
 }
 .link-underline:hover {
   background-size: 100% 1px;
+}
+
+/* Custom Cyber Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+/* Table Alternating Cyber Rows */
+table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.015);
+}
+table tbody tr:nth-child(odd) {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+table tbody tr {
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+table tbody tr:hover {
+  background-color: rgba(0, 240, 255, 0.06) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

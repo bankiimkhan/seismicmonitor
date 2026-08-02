@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { PageHero } from '@/components/layout/PageHero';
 import { HazardTrends } from '@/components/HazardTrends';
 import { useLocalStorageState } from '@/hooks/useLocalStorageState';
@@ -36,16 +37,32 @@ const BASIN_LABELS: Record<string, string> = {
 // storm-season history fits "trends" better than a live-advisory feed.
 function RecentSeasons() {
   const [storms, setStorms] = useState<StormSummary[] | null>(null);
+  const [error, setError] = useState(false);
+  // Bumped by the retry button. Re-setting `season` to its current value would
+  // not re-run the effect -- React bails out of an identical state update.
+  const [reloadKey, setReloadKey] = useState(0);
   const [season, setSeason] = useLocalStorageState('cyclone_history_season', '');
 
   useEffect(() => {
+    // `error` is tracked separately from an empty `storms` array. Collapsing a
+    // failed request into `setStorms([])` rendered "No historical storms found
+    // -- the daily archive sync may not have run", which is both wrong and
+    // actively misleading when the sync did run and the *read* is what broke.
+    let cancelled = false;
+    // Reset before the new fetch settles so a season switch doesn't briefly
+    // show the previous season's rows under the new selection -- same
+    // one-time reconciliation pattern as components/HazardTrends.tsx.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStorms(null);
+    setError(false);
     const params = new URLSearchParams({ limit: '50' });
     if (season) params.set('season', season);
     fetch(`/api/cyclone-history?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((d) => setStorms(d.storms ?? []))
-      .catch(() => setStorms([]));
-  }, [season]);
+      .then((d) => { if (!cancelled) setStorms(d.storms ?? []); })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
+  }, [season, reloadKey]);
 
   const seasonOptions = Array.from({ length: 4 }, (_, i) => new Date().getUTCFullYear() - i);
 
@@ -67,12 +84,19 @@ function RecentSeasons() {
         </div>
       </div>
 
-      {storms === null && (
+      {error && (
+        <ErrorState
+          title="Couldn't load storm history"
+          message="The historical cyclone archive is unreachable right now."
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+      {!error && storms === null && (
         <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
         </div>
       )}
-      {storms?.length === 0 && (
+      {!error && storms?.length === 0 && (
         <EmptyState title="No historical storms found" description="No IBTrACS records for this season yet -- the daily archive sync may not have run." />
       )}
       {storms && storms.length > 0 && (

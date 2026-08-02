@@ -71,7 +71,14 @@ export default function LocalPage() {
       if (t < dayStartMs || t >= dayStartMs + DAY_MS) return false;
     }
 
-    if (location) {
+    // Only events with a real magnitude can be measured against the felt-distance
+    // table. An unmeasured one (USGS reports `mag: null`, typically on an event
+    // too fresh to have been reviewed yet) used to reach maxFeltDistanceKm as a
+    // `null` that coerced to magnitude 0 -- yielding a 5km cutoff, so the newest
+    // nearby events were the ones silently dropped from a page whose whole job is
+    // to surface them. Keep them: the server-side bbox already scopes the query
+    // to the region, and "we don't know yet" is not grounds for hiding an event.
+    if (location && q.properties.mag !== null) {
       const [lng, lat] = q.geometry?.coordinates ?? [];
       if (lat !== undefined && lng !== undefined) {
         const distance = distanceKm(location, { lat, lng });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { extractAftershockForecast, fetchAftershockForecast } from '@/lib/aftershockForecast';
+import { checkRateLimit, clientIpFrom } from '@/lib/rateLimit';
 import { log } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,17 @@ export const dynamic = 'force-dynamic';
 // Both branches also attach `aftershockForecast` (lib/aftershockForecast.ts)
 // when USGS has one for this event -- null for the common case where no
 // forecast exists, or the event has no USGS report at all.
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const ip = clientIpFrom(req.headers);
+    const { ok, resetMs } = checkRateLimit(`quake:${ip}`);
+    if (!ok) {
+        log.warn('quake route rate limited', { ip });
+        return NextResponse.json(
+            { error: 'Too many requests' },
+            { status: 429, headers: { 'Retry-After': String(Math.ceil(resetMs / 1000)) } }
+        );
+    }
+
     // Route params can arrive still percent-encoded (observed for ids
     // containing reserved characters, e.g. NCS's "YYYY-MM-DD HH:MM:SS
     // Place" ids with spaces/colons -- USGS's plain alphanumeric ids never

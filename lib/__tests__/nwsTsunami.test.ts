@@ -41,7 +41,7 @@ describe('fetchTsunamiAlerts', () => {
     it('centroids a directly-provided Polygon geometry', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(alertsResponse([ALERT_WITH_GEOMETRY])));
 
-        const alerts = await fetchTsunamiAlerts();
+        const alerts = (await fetchTsunamiAlerts())!;
         expect(alerts).toHaveLength(1);
         expect(alerts[0].alertLevel).toBe('Tsunami Warning');
         expect(alerts[0].place).toBe('Big Island Southeast, Hawaii');
@@ -60,7 +60,7 @@ describe('fetchTsunamiAlerts', () => {
             .mockResolvedValueOnce(zoneResponse([[-157.8, 21.4], [-157.6, 21.4], [-157.6, 21.6], [-157.8, 21.6]]));
         vi.stubGlobal('fetch', fetchMock);
 
-        const alerts = await fetchTsunamiAlerts();
+        const alerts = (await fetchTsunamiAlerts())!;
         expect(alerts).toHaveLength(1);
         expect(alerts[0].lat).toBeCloseTo(21.5, 5);
         expect(alerts[0].lng).toBeCloseTo(-157.7, 5);
@@ -98,13 +98,17 @@ describe('fetchTsunamiAlerts', () => {
         expect(await fetchTsunamiAlerts()).toEqual([]);
     });
 
-    it('returns an empty array gracefully when the fetch fails', async () => {
+    // null, not [] -- the ingest job records source health on a successful
+    // fetch, so "read the feed, no alerts" and "could not read the feed" have
+    // to be distinguishable. Tsunami alerts are rare enough that conflating
+    // them meant this source never appeared on /about at all.
+    it('returns null (not an empty array) when the fetch fails', async () => {
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
-        expect(await fetchTsunamiAlerts()).toEqual([]);
+        expect(await fetchTsunamiAlerts()).toBeNull();
     });
 
-    it('returns an empty array gracefully when the upstream responds non-ok', async () => {
+    it('returns null (not an empty array) when the upstream responds non-ok', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
-        expect(await fetchTsunamiAlerts()).toEqual([]);
+        expect(await fetchTsunamiAlerts()).toBeNull();
     });
 });

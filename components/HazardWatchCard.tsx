@@ -14,6 +14,9 @@ interface HazardWatchCardProps {
     /** Unit label for hazard types with a real severity metric (FRP, wind speed); omit for volcano/landslide, which have none. */
     unit?: string;
     noActivityLabel: string;
+    /** Shown in place of `noActivityLabel` when this hazard type has no working
+     * source at all, so a structural gap doesn't read as a quiet day. */
+    unavailableLabel?: string;
 }
 
 // One tile in Home's "Global Hazard Watch" grid -- generalizes the
@@ -22,8 +25,13 @@ interface HazardWatchCardProps {
 // page already relies on. Reduces the fetched window down to one StatCard:
 // tracked count + the single most severe reading, or (for hazard types with
 // no severity metric, e.g. volcano/landslide) the most recent event instead.
-export function HazardWatchCard({ hazardType, title, icon, href, hours, unit, noActivityLabel }: HazardWatchCardProps) {
-    const { hazards } = useHazardEvents(hazardType, {
+export function HazardWatchCard({ hazardType, title, icon, href, hours, unit, noActivityLabel, unavailableLabel }: HazardWatchCardProps) {
+    // `error` and `loading` are read, not discarded. Dropping them meant a
+    // failing /api/hazards rendered a confident "0" with a "No activity"
+    // footer -- i.e. this tile actively asserted that nothing was happening
+    // whenever it had no idea, which is the worst thing a hazard dashboard can
+    // do.
+    const { hazards, loading, error } = useHazardEvents(hazardType, {
         hours: String(hours),
         limit: '300',
         autoRefresh: true,
@@ -51,6 +59,22 @@ export function HazardWatchCard({ hazardType, title, icon, href, hours, unit, no
         return { topValue: null as number | null, topPlace: null as string | null, sparkline: undefined };
     }, [hazards]);
 
+    // An unreadable feed shows an em dash and says so. Only a successful,
+    // genuinely empty response is allowed to render a count of 0.
+    const unknown = error !== null || (loading && hazards.length === 0);
+    const footer = unknown
+        ? (error !== null ? "Couldn't load — count unknown" : 'Loading…')
+        : topPlace ? (
+            <span className="block max-w-[150px] truncate" title={topPlace}>
+                {topValue !== null && (
+                    <span className="font-mono text-foreground-muted">
+                        {topValue.toFixed(1)}{unit ? ` ${unit}` : ''} ·{' '}
+                    </span>
+                )}
+                {topPlace}
+            </span>
+        ) : (unavailableLabel ?? noActivityLabel);
+
     return (
         <Link href={href} className="block h-full">
             <StatCard
@@ -58,22 +82,10 @@ export function HazardWatchCard({ hazardType, title, icon, href, hours, unit, no
                 className="h-full"
                 label={title}
                 value={hazards.length}
+                placeholder={unknown ? '—' : undefined}
                 icon={icon}
-                sparkline={sparkline}
-                footer={
-                    topPlace ? (
-                        <span className="block max-w-[150px] truncate" title={topPlace}>
-                            {topValue !== null && (
-                                <span className="font-mono text-foreground-muted">
-                                    {topValue.toFixed(1)}{unit ? ` ${unit}` : ''} ·{' '}
-                                </span>
-                            )}
-                            {topPlace}
-                        </span>
-                    ) : (
-                        noActivityLabel
-                    )
-                }
+                sparkline={unknown ? undefined : sparkline}
+                footer={footer}
             />
         </Link>
     );

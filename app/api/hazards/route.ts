@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { buildBBoxFromCenter } from '@/lib/earthquakes';
+import { checkRateLimit, clientIpFrom } from '@/lib/rateLimit';
+import { finiteParam, finiteParamOr } from '@/lib/queryParams';
 import { log } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +21,16 @@ export const dynamic = 'force-dynamic';
 // separately by design (different sources/granularities -- see lib/eonet.ts
 // and lib/noaaCyclones.ts) but read as one category on Home's overview grid.
 export async function GET(req: NextRequest) {
+    const ip = clientIpFrom(req.headers);
+    const { ok, remaining, resetMs } = checkRateLimit(`hazards:${ip}`);
+    if (!ok) {
+        log.warn('hazards route rate limited', { ip });
+        return NextResponse.json(
+            { error: 'Too many requests' },
+            { status: 429, headers: { 'Retry-After': String(Math.ceil(resetMs / 1000)) } }
+        );
+    }
+
     const { searchParams } = new URL(req.url);
     const hazardType = searchParams.get('type');
     if (!hazardType) {
@@ -26,26 +38,13 @@ export async function GET(req: NextRequest) {
     }
     const hazardTypes = hazardType.split(',').map((t) => t.trim()).filter(Boolean);
 
-    // Same Number.isFinite discipline as hours/limit below -- a non-numeric
-    // `?lat=`/`?lng=` would otherwise build a NaN bbox and send `NaN` bounds
-    // into the PostgREST query, which fails the whole request rather than
-    // just ignoring an unusable filter.
-    const finiteParam = (raw: string | null): number | undefined => {
-        if (raw === null || raw.trim() === '') return undefined;
-        const value = Number(raw);
-        return Number.isFinite(value) ? value : undefined;
-    };
     const lat = finiteParam(searchParams.get('lat'));
     const lng = finiteParam(searchParams.get('lng'));
-    const range = finiteParam(searchParams.get('range')) ?? 15;
-    // Number.isFinite guards -- a non-numeric `?hours=`/`?limit=` would
-    // otherwise produce NaN, and `new Date(NaN).toISOString()` throws an
-    // uncaught RangeError (this used to run before the try block even
-    // started).
-    const hoursParam = Number(searchParams.get('hours') ?? '24');
-    const hours = Number.isFinite(hoursParam) ? hoursParam : 24;
-    const limitParam = Number(searchParams.get('limit') ?? '200');
-    const limit = Math.min(1000, Number.isFinite(limitParam) ? limitParam : 200);
+    const range = finiteParamOr(searchParams.get('range'), 15);
+    const hours = finiteParamOr(searchParams.get('hours'), 24);
+    // Clamped to the PostgREST max-rows ceiling: asking for more than 1000 in a
+    // single select silently returns 1000 anyway.
+    const limit = Math.min(1000, Math.max(1, finiteParamOr(searchParams.get('limit'), 200)));
 
     try {
         const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
@@ -89,7 +88,10 @@ export async function GET(req: NextRequest) {
             },
         }));
 
-        return NextResponse.json({ type: 'FeatureCollection', features, metadata: { hazardType } });
+        return NextResponse.json(
+            { type: 'FeatureCollection', features, metadata: { hazardType } },
+            { headers: { 'X-RateLimit-Remaining': String(remaining) } }
+        );
     } catch (error) {
         log.error('hazards route failed', { error: String(error), hazardType });
         return NextResponse.json({ error: 'Server Error' }, { status: 500 });

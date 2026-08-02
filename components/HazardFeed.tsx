@@ -2,6 +2,7 @@
 import { Card } from '@/components/ui/Card';
 import { Label } from '@/components/ui/Input';
 import { HazardTable } from '@/components/HazardTable';
+import { CoverageNotice } from '@/components/CoverageNotice';
 import { LocationPrompt } from '@/components/LocationPrompt';
 import { LocationSwitcher } from '@/components/LocationSwitcher';
 import { useHazardEvents } from '@/hooks/useHazardEvents';
@@ -47,6 +48,8 @@ export function HazardFeed({ hazardSlug, scope }: HazardFeedProps) {
 
     return (
         <div className="space-y-4">
+            <CoverageNotice notice={config.coverageNotice} />
+
             {scope === 'local' && (
                 <LocationPrompt
                     status={locationStatus}

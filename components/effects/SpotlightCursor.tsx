@@ -31,7 +31,7 @@ export function SpotlightCursor() {
             eased.x += (raw.x - eased.x) * LERP;
             eased.y += (raw.y - eased.y) * LERP;
             if (dotRef.current) {
-                dotRef.current.style.transform = `translate3d(${eased.x}px, ${eased.y}px, 0)`;
+                dotRef.current.style.transform = `translate(${eased.x}px, ${eased.y}px)`;
             }
             raf = requestAnimationFrame(tick);
         };

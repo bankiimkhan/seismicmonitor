@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, use as usePromise } from 'react';
+import { useEffect, useMemo, useState, use as usePromise } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Reveal } from '@/components/effects/Reveal';
@@ -99,6 +99,20 @@ export default function QuakeDetailPage({ params }: { params: Promise<{ id: stri
         return () => { cancelled = true; };
     }, [id]);
 
+    // Memoized, and declared before the early returns below so the hook order
+    // stays stable. Passing inline literals here meant a new array/object
+    // identity on every render, and QuakeMap's marker-sync effect keys on
+    // those -- so the pin and its popup were destroyed and recreated on each
+    // parent re-render (useLocation state settling causes several).
+    const mapQuakes = useMemo(
+        () => (quake ? [{ id: quake.id, lat: quake.lat, lng: quake.lng, mag: quake.mag, place: quake.place }] : []),
+        [quake]
+    );
+    const mapCenter = useMemo(
+        () => (quake ? { lat: quake.lat, lng: quake.lng } : undefined),
+        [quake]
+    );
+
     if (notFound) {
         return (
             <div className="mx-auto w-full max-w-2xl px-4 py-12">
@@ -176,8 +190,8 @@ export default function QuakeDetailPage({ params }: { params: Promise<{ id: stri
 
             <div className="mb-6">
                 <QuakeMap
-                    quakes={[{ id: quake.id, lat: quake.lat, lng: quake.lng, mag: quake.mag, place: quake.place }]}
-                    center={{ lat: quake.lat, lng: quake.lng }}
+                    quakes={mapQuakes}
+                    center={mapCenter}
                     zoom={7}
                     interactive={false}
                     className="h-64"

@@ -30,31 +30,31 @@ export function AmbientBackground() {
                 className="animate-mesh-drift absolute -inset-[25%] opacity-[var(--ambient-mesh-opacity)]"
                 style={{
                     background:
-                        'radial-gradient(at 20% 30%, var(--glow-blue), transparent 50%), radial-gradient(at 80% 20%, var(--glow-purple), transparent 50%), radial-gradient(at 40% 85%, var(--glow-cyan), transparent 50%)',
+                        'radial-gradient(at 15% 25%, var(--glow-cyan), transparent 45%), radial-gradient(at 85% 15%, var(--glow-purple), transparent 45%), radial-gradient(at 50% 85%, var(--glow-blue), transparent 50%), radial-gradient(at 80% 70%, var(--glow-teal), transparent 40%)',
                 }}
             />
 
             {/* Layer 2: floating glow blobs */}
             <div
-                className="animate-float-blob-a absolute -left-20 -top-40 h-[560px] w-[560px] rounded-full opacity-[var(--ambient-blob-opacity)] blur-[100px]"
+                className="animate-float-blob-a absolute -left-20 -top-40 h-[600px] w-[600px] rounded-full opacity-[var(--ambient-blob-opacity)] blur-[120px]"
                 style={{ background: 'var(--glow-cyan)' }}
             />
             <div
-                className="animate-float-blob-b absolute -right-24 top-1/3 h-[620px] w-[620px] rounded-full opacity-[var(--ambient-blob-opacity)] blur-[110px]"
+                className="animate-float-blob-b absolute -right-24 top-1/3 h-[650px] w-[650px] rounded-full opacity-[var(--ambient-blob-opacity)] blur-[130px]"
                 style={{ background: 'var(--glow-blue)' }}
             />
             <div
-                className="animate-float-blob-c absolute bottom-0 left-1/4 h-[500px] w-[500px] rounded-full opacity-[var(--ambient-blob-opacity)] blur-[90px]"
+                className="animate-float-blob-c absolute bottom-0 left-1/4 h-[550px] w-[550px] rounded-full opacity-[var(--ambient-blob-opacity)] blur-[110px]"
                 style={{ background: 'var(--glow-purple)' }}
             />
 
-            {/* Layer 3: subtle grid texture */}
+            {/* Layer 3: cyber grid texture */}
             <div
                 className="absolute inset-0 opacity-[var(--ambient-grid-opacity)]"
                 style={{
                     backgroundImage:
-                        'linear-gradient(var(--foreground) 1px, transparent 1px), linear-gradient(90deg, var(--foreground) 1px, transparent 1px)',
-                    backgroundSize: '48px 48px',
+                        'linear-gradient(rgba(0, 240, 255, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.15) 1px, transparent 1px)',
+                    backgroundSize: '40px 40px',
                 }}
             />
 

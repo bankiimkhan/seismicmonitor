@@ -1,6 +1,7 @@
 interface ExportableQuake {
     id: string;
-    properties: { mag: number; place: string; time: number; url: string };
+    /** `mag` is nullable -- USGS reports no magnitude for some events. */
+    properties: { mag: number | null; place: string; time: number; url: string };
     geometry: { coordinates: [number, number, number] };
 }
 
@@ -24,9 +25,21 @@ function download(filename: string, content: string, mime: string) {
     }, 0);
 }
 
+// Spreadsheet apps treat a leading =, +, -, @, tab or CR as the start of a
+// formula, so a field beginning with one executes on open. Place strings come
+// from upstream feeds -- and the NCS path is an HTML scrape, a weaker trust
+// boundary than it looks -- so they are not safe to emit verbatim. Prefixing
+// with a single quote is the standard neutralization and is stripped by the
+// spreadsheet on display.
+function neutralizeFormula(str: string) {
+    return /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+}
+
 function csvEscape(value: string | number) {
-    const str = String(value);
-    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    const str = neutralizeFormula(String(value));
+    // \r included alongside \n: a bare CR would otherwise go unquoted and break
+    // row parsing.
+    return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 export function exportQuakesAsCsv(quakes: ExportableQuake[], filename = 'earthquakes.csv') {
@@ -36,7 +49,9 @@ export function exportQuakesAsCsv(quakes: ExportableQuake[], filename = 'earthqu
         return [
             q.id,
             q.properties.place,
-            q.properties.mag,
+            // Empty cell, not `null` (which String()s to the literal text "null")
+            // and not 0 (which reads as a real measurement of zero).
+            q.properties.mag ?? '',
             new Date(q.properties.time).toISOString(),
             lat,
             lng,
