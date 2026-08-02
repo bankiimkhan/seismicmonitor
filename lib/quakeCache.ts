@@ -19,11 +19,12 @@ export interface CachedQuake {
 // that already has the full quake object in memory, or loaded cold (a
 // shared link, a bookmark, a page refresh). The server-side lookup in
 // /api/quake/[id] only knows about USGS's own per-event API and our own
-// `earthquakes` history table -- which is empty for NCS events until the
-// ingest cron has actually run (every 15 min in production; never locally
-// unless triggered by hand). Stashing the object here at click time makes
-// the common "clicked from a list I was just looking at" case work
-// immediately, with the server lookup as a fallback for cold loads.
+// `hazard_events` archive -- which has no row for an NCS event until the
+// ingest job has actually run (every 15 min in production, as a Supabase
+// Edge Function on pg_cron; never locally unless triggered by hand).
+// Stashing the object here at click time makes the common "clicked from a
+// list I was just looking at" case work immediately, with the server lookup
+// as a fallback for cold loads.
 export function stashQuake(quake: CachedQuake) {
     try {
         sessionStorage.setItem(PREFIX + quake.id, JSON.stringify(quake));

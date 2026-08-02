@@ -26,8 +26,8 @@ const BASIN_LABELS: Record<string, string> = {
 // Storm-level historical summaries from IBTrACS (see lib/ibtracs.ts) --
 // deliberately a different shape/table from hazard_events: one row per storm
 // (aggregated across all its track points), not one row per point. Not
-// live-polled -- this is a bulk archive refreshed once a day by
-// /api/ingest-cyclone-history, so a plain one-shot fetch (same pattern as
+// live-polled -- this is a bulk archive refreshed once a day by the
+// ingest-cyclone-history Edge Function, so a plain one-shot fetch (same pattern as
 // app/about/page.tsx's health fetch) is enough, no AbortController/polling
 // machinery needed. Lives on Trends (not the live Global listing) since
 // storm-season history fits "trends" better than a live-advisory feed.

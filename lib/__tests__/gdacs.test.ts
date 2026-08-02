@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fetchGdacsFeatures } from '../gdacs';
 
+// A real Response, not a hand-rolled `{ ok, json }` stub: the adapter reads the
+// body as text and parses it itself (so it can tell an empty 204 body apart from
+// a malformed one), and a stub that only implements json() would not exercise
+// that path at all.
 function eventListResponse(features: unknown[]) {
-    return { ok: true, json: async () => ({ type: 'FeatureCollection', features }) };
+    return new Response(JSON.stringify({ type: 'FeatureCollection', features }), { status: 200 });
 }
 
 const EQ_FEATURE = {
@@ -87,5 +91,26 @@ describe('fetchGdacsFeatures', () => {
     it('still returns [] when the feed was read and genuinely had no earthquakes', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(eventListResponse([])));
         expect(await fetchGdacsFeatures(24, 50)).toEqual([]);
+    });
+
+    // How GDACS actually reports an empty window (live-verified): 204 with no
+    // body, not an empty FeatureCollection. 204 is `ok`, so this reached
+    // response.json() and threw on the empty body -- turning the single most
+    // common response into a "feed unreadable" null, which marked the source
+    // degraded on /about and climbed consecutive_failures every cycle.
+    it('returns [] (not null) for a 204 No Content window with no events', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+        expect(await fetchGdacsFeatures(24, 50)).toEqual([]);
+    });
+
+    it('returns [] for a 200 with an empty body', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 200 })));
+        expect(await fetchGdacsFeatures(24, 50)).toEqual([]);
+    });
+
+    // Empty is a real answer; malformed is not. Only the latter is a failed read.
+    it('returns null when the body is present but not valid JSON', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>502</html>', { status: 200 })));
+        expect(await fetchGdacsFeatures(24, 50)).toBeNull();
     });
 });

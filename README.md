@@ -145,9 +145,10 @@ select vault.update_secret(
 `open-next.config.ts` points Next's incremental cache at R2
 (`NEXT_INC_CACHE_R2_BUCKET`). Every route handler is `force-dynamic`, so there
 is little ISR surface — but `lib/earthquakes.ts` relies on
-`fetch(..., { next: { revalidate } })` to hold a shared 15-minute window over the
-USGS and NCS feeds. With no incremental cache configured that hint is silently
-dropped and every request re-fetches upstream.
+`fetch(..., { next: { revalidate } })` to hold a shared 30-second window over the
+USGS and NCS feeds (`CACHE_WINDOW_SECONDS`, matched to the client poll interval
+so concurrent pollers share one upstream request). With no incremental cache
+configured that hint is silently dropped and every request re-fetches upstream.
 
 ## Scripts
 

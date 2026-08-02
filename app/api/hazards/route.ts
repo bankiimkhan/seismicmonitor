@@ -13,8 +13,8 @@ export const dynamic = 'force-dynamic';
 // hazard_events by type" shape later. This is the read-side analog of
 // /api/earthquakes for hazards that were never "live" to begin with (FIRMS
 // updates on a satellite-revisit cadence, not a live feed -- see
-// app/api/ingest/route.ts's FIRMS_POLL_INTERVAL_MS), so there's no upstream
-// to pass through live; the archive *is* the data source.
+// FIRMS_POLL_INTERVAL_MS in supabase/functions/ingest/index.ts), so there's no
+// upstream to pass through live; the archive *is* the data source.
 //
 // `type` accepts a comma-separated list (e.g. `cyclone,severe_weather`) to
 // let a single caller merge closely-related hazard types that are stored

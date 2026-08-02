@@ -9,18 +9,25 @@ export function FeltReportSummary({ quakeId, refreshKey }: { quakeId: string; re
 
     useEffect(() => {
         let cancelled = false;
+        // `count: 'exact'` rather than `data.length`: PostgREST caps an
+        // unbounded select at max-rows (1000 on Supabase) *without erroring*,
+        // so a quake that ever passed 1000 reports would have silently
+        // reported exactly "1000 reports" forever. The count comes from the
+        // server; the mean is still over the returned page, which is the
+        // honest limit of one request and plenty for a rough intensity read.
         supabase
             .from('felt_reports')
-            .select('intensity')
+            .select('intensity', { count: 'exact' })
             .eq('quake_id', quakeId)
-            .then(({ data, error }) => {
+            .then(({ data, count, error }) => {
                 if (cancelled || error || !data) return;
-                if (data.length === 0) {
+                const total = count ?? data.length;
+                if (total === 0 || data.length === 0) {
                     setStats({ count: 0, avg: 0 });
                     return;
                 }
                 const avg = data.reduce((sum, r) => sum + r.intensity, 0) / data.length;
-                setStats({ count: data.length, avg });
+                setStats({ count: total, avg });
             });
         return () => { cancelled = true; };
     }, [quakeId, refreshKey]);

@@ -66,8 +66,8 @@ export function parseFirmsCsv(csv: string): WildfireHotspot[] {
         // Stable across repeated fetches of the same detection -- FIRMS gives
         // no native event id, so identity is built from the detection's own
         // fields (this deliberately does NOT cluster repeated detections of
-        // an ongoing fire into one persistent "incident"; see lib/firms.ts's
-        // caller in app/api/ingest/route.ts for why).
+        // an ongoing fire into one persistent "incident"; see this adapter's
+        // caller in supabase/functions/ingest/index.ts for why).
         const agencyNativeId = `firms-${acqDate}-${acqTime}-${lat.toFixed(4)}-${lng.toFixed(4)}-${satellite}`;
 
         hotspots.push({

@@ -59,7 +59,25 @@ export async function fetchGdacsFeatures(hours: number, limit: number): Promise<
 
         const response = await fetch(url.toString(), { signal: controller.signal });
         if (!response.ok) throw new Error(`GDACS upstream status: ${response.status}`);
-        const data = await response.json();
+
+        // GDACS signals "no events in this window" with `204 No Content` and an
+        // empty body rather than an empty FeatureCollection (live-verified
+        // 2026-08-02). 204 passes the `response.ok` check above, so this used to
+        // reach `response.json()`, which throws on an empty body -- landing in
+        // the catch below and reporting a perfectly healthy feed as unreadable.
+        //
+        // That is not a rare edge: the ingest job asks for a ~1-day window and
+        // GDACS only publishes the larger events, so most windows are genuinely
+        // empty. Every one of them would have marked gdacs 'fallback', climbed
+        // consecutive_failures, and shown the source as degraded on /about.
+        // Read the body once and treat "empty" as what it actually is -- a
+        // successful read with no events, i.e. `[]`, never `null`.
+        const body = await response.text();
+        if (response.status === 204 || body.trim() === '') return [];
+
+        // Still parsed inside the try: a genuinely malformed body should fall
+        // through to the catch and return null, same as before.
+        const data = JSON.parse(body);
         const features: GdacsFeature[] = Array.isArray(data?.features) ? data.features : [];
 
         // flatMap (not map) so a record with an unparseable date, or a
