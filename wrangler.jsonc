@@ -21,6 +21,26 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
     },
+    // The app is served from a custom domain on the bankiim.me zone. This was
+    // configured in the dashboard and NOT recorded here, which made it a
+    // deletion candidate: `wrangler deploy` overwrites remote config with this
+    // file, and anything present remotely but missing here shows up in the
+    // pre-deploy diff as a removal. Declared here so the deploy is idempotent
+    // and the routing lives in version control with everything else.
+    "routes": [
+        {
+            "pattern": "seismic-monitor.bankiim.me",
+            "zone_name": "bankiim.me",
+            "custom_domain": true
+        }
+    ],
+    // Both default to true the moment they are absent from this file, so
+    // leaving them out silently re-enabled a second public origin
+    // (seismicmonitor.<subdomain>.workers.dev) alongside the custom domain --
+    // duplicate content, and an origin that bypasses anything bound to the
+    // zone. Off, explicitly.
+    "workers_dev": false,
+    "preview_urls": false,
     "observability": {
         "enabled": true
     },
@@ -38,6 +58,10 @@
         // Runtime copy. The *client* bundle gets its own copy inlined at build
         // time from .env -- setting it here does not cover that, so keep the
         // two in sync (see .env.example).
-        "NEXT_PUBLIC_APP_URL": "https://seismic-monitor.bankiim.me/"
+        // No trailing slash: every consumer appends a path (`${APP_URL}/embed`
+        // in /about's iframe snippet), so a trailing slash produced a `//embed`
+        // URL that Next answers with a 308 redirect -- a wasted hop inside a
+        // third party's iframe.
+        "NEXT_PUBLIC_APP_URL": "https://seismic-monitor.bankiim.me"
     }
 }

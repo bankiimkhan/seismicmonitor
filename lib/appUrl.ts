@@ -6,4 +6,4 @@
  * ShareAppCard still fell back to a long-dead Vercel host, so with the env var
  * unset the share button handed out a broken link. */
 export const APP_URL =
-    process.env.NEXT_PUBLIC_APP_URL || 'https://seismicmonitor.contact-ahmedsakib.workers.dev';
+    process.env.NEXT_PUBLIC_APP_URL || 'https://seismic-monitor.bankiim.me';
