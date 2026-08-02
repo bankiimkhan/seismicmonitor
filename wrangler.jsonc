@@ -38,6 +38,6 @@
         // Runtime copy. The *client* bundle gets its own copy inlined at build
         // time from .env -- setting it here does not cover that, so keep the
         // two in sync (see .env.example).
-        "NEXT_PUBLIC_APP_URL": "https://seismicmonitor.contact-ahmedsakib.workers.dev"
+        "NEXT_PUBLIC_APP_URL": "https://seismic-monitor.bankiim.me/"
     }
 }
