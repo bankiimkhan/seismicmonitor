@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { PageHero } from '@/components/layout/PageHero';
 import { Button } from '@/components/ui/Button';
 import { CopyIcon, CheckCircleIcon } from '@/components/ui/icons';
+import { APP_URL } from '@/lib/appUrl';
 import { formatRelativeTime } from '@/lib/formatRelativeTime';
 import { useT } from '@/lib/i18n/LocaleProvider';
 import { useToast } from '@/components/ui/Toast';
@@ -20,10 +21,7 @@ export default function AboutPage() {
     const [health, setHealth] = useState<HealthSource[] | null>(null);
     const [healthError, setHealthError] = useState(false);
     const [copied, setCopied] = useState(false);
-    // Falls back to the deployed Worker origin, not the long-dead Vercel host
-    // this project was originally on.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://seismicmonitor.contact-ahmedsakib.workers.dev';
-    const embedSnippet = `<iframe src="${appUrl}/embed" style="width:100%;height:520px;border:0;border-radius:8px" loading="lazy"></iframe>`;
+    const embedSnippet = `<iframe src="${APP_URL}/embed" style="width:100%;height:520px;border:0;border-radius:8px" loading="lazy"></iframe>`;
 
     useEffect(() => {
         let cancelled = false;

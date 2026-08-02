@@ -6,12 +6,10 @@ import { NavMenu, useNavLinks, NAV_ICONS } from './NavMenu';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Modal } from '@/components/ui/Modal';
 import { MenuIcon } from '@/components/ui/icons';
-import { useT } from '@/lib/i18n/LocaleProvider';
 import { useScrollY } from '@/hooks/useScrollY';
 
 export function TopNav() {
     const pathname = usePathname();
-    const { t } = useT();
     const links = useNavLinks();
     const scrolled = useScrollY() > 8;
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -29,7 +27,7 @@ export function TopNav() {
                     type="button"
                     onClick={() => setDrawerOpen(true)}
                     aria-label="Open menu"
-                    className="-ml-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-hover hover:text-accent lg:hidden"
+                    className="-ml-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-hover hover:text-accent xl:hidden"
                 >
                     <MenuIcon size={18} />
                 </button>
@@ -39,7 +37,9 @@ export function TopNav() {
                     <span className="hidden font-mono text-sm font-bold uppercase tracking-widest text-foreground sm:inline">Seismic</span>
                 </Link>
 
-                <nav className="hidden items-center gap-1 lg:flex">
+                {/* xl, not lg: eight hazard links in a mono face need ~1150px
+                    and were overflowing the bar between 1024 and 1280. */}
+                <nav className="hidden items-center gap-1 xl:flex">
                     {links.map((link) => {
                         const Icon = NAV_ICONS[link.key];
                         const active = link.href === '/' ? pathname === '/' : !!pathname?.startsWith(link.href);
@@ -62,12 +62,11 @@ export function TopNav() {
                     })}
                 </nav>
 
+                {/* No standing "LIVE" pill here. It was a second copy of the
+                    indicator the live feed already carries on Overview, and it
+                    kept claiming live data on pages that have none -- /about,
+                    and every section's Trends tab, which is an archive. */}
                 <div className="ml-auto flex flex-shrink-0 items-center gap-2">
-                    <div className="hidden items-center gap-1.5 rounded-full border border-success/40 bg-surface/90 px-3 py-1 shadow-[0_0_12px_rgba(0,255,102,0.2)] sm:flex">
-                        <span className="live-dot h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_#00ff66]" />
-                        <span className="text-xs font-mono font-semibold uppercase tracking-wider text-success">{t('nav.live')}</span>
-                    </div>
-
                     <ThemeToggle />
                 </div>
             </header>

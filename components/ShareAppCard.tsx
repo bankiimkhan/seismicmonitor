@@ -1,6 +1,7 @@
 "use client";
 import { Card } from '@/components/ui/Card';
 import { ShareButton } from '@/components/ShareButton';
+import { APP_URL } from '@/lib/appUrl';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
 // The natural growth loop for a safety app is caretaking, not curiosity --
@@ -9,7 +10,6 @@ import { useT } from '@/lib/i18n/LocaleProvider';
 // login-free.
 export function ShareAppCard() {
     const { t } = useT();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bd-earthquakes.vercel.app';
 
     return (
         <Card className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
@@ -20,7 +20,7 @@ export function ShareAppCard() {
             <ShareButton
                 title="Seismic Monitor"
                 text={t('share.appMessage')}
-                url={appUrl}
+                url={APP_URL}
                 eventName="share_app"
                 className="flex-shrink-0 rounded-md border border-border bg-surface px-3 py-2 hover:bg-surface-hover"
             />

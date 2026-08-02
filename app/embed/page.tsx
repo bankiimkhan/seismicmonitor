@@ -6,7 +6,7 @@ import { useEarthquakes } from '@/hooks/useEarthquakes';
 // (audit 4.3) -- see the snippet on /about. No Navbar (see Navbar.tsx),
 // no filters, just the live list plus a small credit link back.
 export default function EmbedPage() {
-    const { quakes, loading, error } = useEarthquakes({
+    const { quakes, loading, error, newIds } = useEarthquakes({
         source: 'both',
         hours: '24',
         limit: '15',
@@ -16,7 +16,11 @@ export default function EmbedPage() {
 
     return (
         <div className="mx-auto w-full max-w-md px-3 py-3">
-            <QuakeList quakes={quakes} loading={loading} error={error} visibleCount={8} />
+            {/* newIds drives the arrival highlight and its screen-reader
+                announcement. Overview's live feed used to be the only list
+                passing it; this is now the only auto-refreshing list in the
+                app, so the feature belongs here rather than nowhere. */}
+            <QuakeList quakes={quakes} loading={loading} error={error} newIds={newIds} visibleCount={8} />
             <a
                 href="/"
                 target="_blank"

@@ -2,17 +2,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Accordion } from '@/components/ui/Accordion';
 import { StatCard } from '@/components/ui/StatCard';
 import { PageHero } from '@/components/layout/PageHero';
 import {
-  ActivityIcon, MapPinIcon, GlobeIcon, ArrowUpRightIcon,
-  FlameIcon, VolcanoIcon, LandslideIcon, CycloneIcon,
+  ActivityIcon, FlameIcon, VolcanoIcon, LandslideIcon, CycloneIcon, WavesIcon,
 } from '@/components/ui/icons';
-import { QuakeList } from '@/components/QuakeList';
 import { LocationPrompt } from '@/components/LocationPrompt';
-import { CoverageStrip } from '@/components/CoverageStrip';
 import { ShareAppCard } from '@/components/ShareAppCard';
 import { HazardWatchCard } from '@/components/HazardWatchCard';
 import { useEarthquakes } from '@/hooks/useEarthquakes';
@@ -54,17 +50,19 @@ export default function Home() {
   const { t } = useT();
   const { status: locationStatus, location, requestGeolocation, setManualLocation } = useLocation();
 
+  // Still region-resolved (see the effect below), just no longer switchable
+  // from this page: the USGS/NCS toggle existed to re-source the earthquake
+  // feed that used to live here, and with the feed gone it would be an
+  // earthquake-only data-source control on an all-hazard overview, affecting
+  // one tile's count. The full source picker still lives where the
+  // earthquake lists it applies to do.
   const [source, setSource] = useState<'usgs' | 'ncs'>('usgs');
-  const [visibleCount, setVisibleCount] = useState(4);
-  const [fullDataLoaded, setFullDataLoaded] = useState(false);
 
   // DYNAMIC SAFETY INFO. `null` = we have no verified number for this country
   // (or location/reverse-geocode hasn't resolved yet), which is rendered as an
   // explicit "look it up" prompt rather than a plausible-looking guess.
   const [country, setCountry] = useState("your area");
   const [emergencyNum, setEmergencyNum] = useState<string | null>(null);
-
-  const hoursWindow = fullDataLoaded ? '24' : '12';
 
   // Auto-detected region (lib/regions.ts) -- Home shows "your region"'s
   // activity, not an arbitrary fixed-degree box around the user's exact
@@ -79,13 +77,16 @@ export default function Home() {
     [region]
   );
 
-  const { quakes, loading, isRefreshing, error, isOfflineError, sourceStatus, lastUpdated, newIds, refetch } = useEarthquakes({
+  // Feeds the Hazard Watch tile only, so its window and cap now match what
+  // every other tile in that grid asks for (that hazard's own `watchHours`,
+  // limit 300) instead of the 8-or-50 row budget the removed feed needed.
+  const { quakes, loading, isRefreshing, error, isOfflineError, sourceStatus, lastUpdated } = useEarthquakes({
     source,
     lat: feedBounds?.lat,
     lng: feedBounds?.lng,
     range: feedBounds ? String(feedBounds.range) : undefined,
-    hours: hoursWindow,
-    limit: fullDataLoaded ? '50' : '8',
+    hours: String(HAZARD_CONFIG.earthquake.watchHours),
+    limit: '300',
     autoRefresh: true,
     refreshIntervalMs: 30000,
   });
@@ -152,6 +153,14 @@ export default function Home() {
     [quakes]
   );
 
+  // Same rule the other five tiles already follow (see HazardWatchCard): only a
+  // successful, genuinely empty response may render a count of 0. This tile was
+  // hand-rolled and skipped it, so a failed fetch showed a confident "0 -- No
+  // activity yet". That was survivable while the feed below it showed the real
+  // error; as the only earthquake surface on this page, it would now be the
+  // page quietly asserting nothing is happening whenever it cannot tell.
+  const quakeCountUnknown = error !== null || (loading && quakes.length === 0);
+
   const preparednessItems = [
     { title: t('prep.dropTitle'), content: t('prep.dropBody') },
     { title: t('prep.bagTitle'), content: t('prep.bagBody') },
@@ -165,39 +174,27 @@ export default function Home() {
       <PageHero
         title={t('home.title')}
         description={
+          // Scope and freshness. This used to read "Monitoring {region}", which
+          // described the earthquake feed that lived below it -- as the header
+          // of an all-hazard page sitting directly above a grid titled "Global
+          // Hazard Watch", it now names one tile's scope while appearing to
+          // describe all six. So: the page is worldwide, and the one tile that
+          // is regional says so.
           <>
-            {t('home.monitoring')}{' '}
-            <span className="font-medium text-foreground">{region ? region.label : 'Worldwide'}</span>
-            <span className="mx-2 text-foreground-subtle">·</span>
-            <span className="font-medium text-foreground">{source === 'usgs' ? 'USGS' : 'NCS India'}</span>
+            {t('home.worldwideWatch')}
+            {region && (
+              <>
+                <span className="mx-2 text-foreground-subtle">·</span>
+                {t('home.quakesNear')}{' '}
+                <span className="font-medium text-foreground">{region.label}</span>
+              </>
+            )}
             <span className="mx-2 text-foreground-subtle">·</span>
             {t('home.updated')} {lastUpdated || '…'}
             {isRefreshing && <span className="ml-1 text-accent">· {t('home.refreshing')}</span>}
           </>
         }
-        actions={
-          <div className="flex items-center gap-2 self-start rounded-full border border-border bg-surface p-1 md:self-auto">
-            <button
-              onClick={() => setSource('usgs')}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${source === 'usgs' ? 'bg-accent text-accent-foreground shadow-sm' : 'text-foreground-muted hover:text-foreground'
-                }`}
-            >
-              USGS
-            </button>
-            <button
-              onClick={() => setSource('ncs')}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${source === 'ncs' ? 'bg-accent text-accent-foreground shadow-sm' : 'text-foreground-muted hover:text-foreground'
-                }`}
-            >
-              NCS
-            </button>
-          </div>
-        }
       />
-
-      <div className="mb-6">
-        <CoverageStrip />
-      </div>
 
       <LocationPrompt status={locationStatus} onAllow={requestGeolocation} onManual={setManualLocation} />
 
@@ -221,7 +218,11 @@ export default function Home() {
 
       {/* GLOBAL HAZARD WATCH -- one tile per hazard type (earthquakes plus
           every hazard_events-backed type), each generalizing the old
-          earthquake-only "tracked count + strongest activity" stat pair. */}
+          earthquake-only "tracked count + strongest activity" stat pair.
+          Six hazards, six tiles, nothing else: a "Detected Location" tile used
+          to sit in here too, which put a non-hazard in the hazard grid, repeated
+          the region the header above already names, and sent you to the local
+          earthquake archive from a label that never said so. */}
       <section className="mb-10">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground">{t('home.hazardWatch')}</h2>
@@ -233,17 +234,20 @@ export default function Home() {
               interactive
               elevated
               className="h-full"
-              label={t('dashboard.quakesTracked')}
+              label={t('home.earthquakes')}
               value={quakes.length}
+              placeholder={quakeCountUnknown ? '—' : undefined}
               icon={<ActivityIcon size={16} />}
-              sparkline={magSparkline.length > 1 ? magSparkline : undefined}
+              sparkline={quakeCountUnknown || magSparkline.length <= 1 ? undefined : magSparkline}
               footer={
-                strongest ? (
-                  <span className="block max-w-[150px] truncate" title={strongest.properties.place}>
-                    <span className="font-mono text-foreground-muted">{strongest.properties.mag.toFixed(1)} · </span>
-                    {strongest.properties.place}
-                  </span>
-                ) : t('dashboard.noActivity')
+                quakeCountUnknown
+                  ? (error !== null ? "Couldn't load — count unknown" : 'Loading…')
+                  : strongest ? (
+                    <span className="block max-w-[150px] truncate" title={strongest.properties.place}>
+                      <span className="font-mono text-foreground-muted">{strongest.properties.mag.toFixed(1)} · </span>
+                      {strongest.properties.place}
+                    </span>
+                  ) : t('dashboard.noActivity')
               }
             />
           </Link>
@@ -254,94 +258,25 @@ export default function Home() {
               lib/hazardConfig.ts's coverageNotice for the same caveat in full. */}
           <HazardWatchCard hazardType={HAZARD_CONFIG.landslide.hazardType} title={t('home.landslides')} icon={<LandslideIcon size={16} />} href="/landslide/global" hours={HAZARD_CONFIG.landslide.watchHours} noActivityLabel={t('dashboard.noActivity')} unavailableLabel="No source reporting" />
           <HazardWatchCard hazardType={HAZARD_CONFIG.cyclone.hazardType} title={t('home.cyclones')} icon={<CycloneIcon size={16} />} href="/cyclone/global" hours={HAZARD_CONFIG.cyclone.watchHours} unit={HAZARD_CONFIG.cyclone.unit} noActivityLabel={t('dashboard.noActivity')} />
-
-          {/* Detected location, not a hazard tile -- occupies the slot
-              freed by folding Severe Weather into Cyclones above (EONET's
-              severeStorms category and NOAA's cyclone feed are both
-              tropical-storm data, just different sources/granularities --
-              see lib/eonet.ts / lib/noaaCyclones.ts -- so showing them as
-              two separate boxes here just duplicated the same phenomenon).
-              Placed last so the hazard tiles stay grouped together first. */}
-          <Link href="/earthquake/local" className="block h-full">
-            <Card interactive className="flex h-full flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-foreground-muted">{t('dashboard.detectedLocation')}</p>
-                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent">
-                  <MapPinIcon size={16} />
-                </span>
-              </div>
-              <p className="truncate text-2xl font-bold tracking-tight text-foreground" title={country}>{country}</p>
-              <p className="text-xs text-foreground-subtle">{region ? region.label : 'Worldwide'}</p>
-            </Card>
-          </Link>
+          {/* Tsunami was the one nav section with no tile here, in a grid whose
+              own description promises "every hazard type" -- and it is the one
+              hazard where a reader most needs to see "nothing active" stated
+              rather than inferred from its absence. Its zero names its own
+              scope: NOAA/NWS covers US waters only (see this hazard's
+              coverageNotice), so a bare "No activity yet" would read as a
+              worldwide all-clear this feed cannot give. */}
+          <HazardWatchCard hazardType={HAZARD_CONFIG.tsunami.hazardType} title={t('home.tsunamis')} icon={<WavesIcon size={16} />} href="/tsunami/global" hours={HAZARD_CONFIG.tsunami.watchHours} noActivityLabel="None active in US waters" />
         </div>
       </section>
 
-      {/* MAIN FEED */}
-      <section className="mb-12">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">{t('home.recentActivity')}</h2>
-          <span className="flex items-center gap-1.5 text-xs font-medium text-foreground-muted">
-            <span className="live-dot h-1.5 w-1.5 rounded-full bg-success" />
-            {t('nav.live')}
-          </span>
-        </div>
-
-        <QuakeList
-          quakes={quakes}
-          loading={loading}
-          error={error}
-          onRetry={refetch}
-          visibleCount={visibleCount}
-          newIds={newIds}
-          userLoc={location}
-        />
-
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          {!fullDataLoaded && (
-            <Button variant="secondary" onClick={() => setFullDataLoaded(true)}>
-              {t('home.loadOlder')}
-            </Button>
-          )}
-          {fullDataLoaded && quakes.length > visibleCount && (
-            <Button variant="secondary" onClick={() => setVisibleCount(quakes.length)}>
-              {t('home.showAll', { count: quakes.length })}
-            </Button>
-          )}
-        </div>
-      </section>
-
-      {/* NAVIGATION SHORTCUTS */}
-      <div className="mb-16 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Link href="/earthquake/local">
-          <Card interactive className="flex h-full items-center gap-4 rounded-xl">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-accent-subtle text-accent">
-              <MapPinIcon size={20} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-foreground">{t('home.localArchive')}</h3>
-              <p className="truncate text-sm text-foreground-muted">{t('home.localArchiveDesc')}</p>
-            </div>
-            <ArrowUpRightIcon size={16} className="flex-shrink-0 text-foreground-subtle" />
-          </Card>
-        </Link>
-        <Link href="/earthquake/global">
-          <Card interactive className="flex h-full items-center gap-4 rounded-xl">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-accent-subtle text-accent">
-              <GlobeIcon size={20} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-foreground">{t('home.globalDashboard')}</h3>
-              <p className="truncate text-sm text-foreground-muted">{t('home.globalDashboardDesc')}</p>
-            </div>
-            <ArrowUpRightIcon size={16} className="flex-shrink-0 text-foreground-subtle" />
-          </Card>
-        </Link>
-      </div>
+      {/* No earthquake feed here. This page is the all-hazard overview, and a
+          list of individual quakes gave one of the six hazards a whole section
+          of its own -- the Hazard Watch tile above is that hazard's place here,
+          and the full feed lives in the Earthquake section. */}
 
       {/* SAFETY PROTOCOLS */}
-      <section className="border-t border-border pt-10">
-        <h3 className="mb-6 text-sm font-medium text-foreground-muted">{t('home.safetyFor', { country })}</h3>
+      <section className="mb-12 border-t border-border pt-10">
+        <h2 className="mb-6 text-lg font-semibold text-foreground">{t('home.safetyFor', { country })}</h2>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card elevated>
@@ -381,11 +316,11 @@ export default function Home() {
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">{t('home.preparedness')}</p>
           <Accordion items={preparednessItems} />
         </Card>
-
-        <div className="mt-4">
-          <ShareAppCard />
-        </div>
       </section>
+
+      {/* Not safety information -- it was sitting under the "Safety information
+          for {country}" heading, which claimed it as such. */}
+      <ShareAppCard />
 
     </div>
   );

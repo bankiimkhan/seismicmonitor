@@ -60,12 +60,20 @@ export function HazardTrends({ hazardSlug }: HazardTrendsProps) {
     return (
         <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
-                {data && (
-                    <Tag className="normal-case tracking-normal">
-                        <GlobeIcon size={10} />
-                        {data.region ? data.region.label : 'Worldwide'}
-                    </Tag>
-                )}
+                {/* Was only ever said on the earthquake section's own header;
+                    it is equally true of all six, so it lives with the charts
+                    it qualifies. */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {data && (
+                        <Tag className="normal-case tracking-normal">
+                            <GlobeIcon size={10} />
+                            {data.region ? data.region.label : 'Worldwide'}
+                        </Tag>
+                    )}
+                    <p className="text-xs text-foreground-subtle">
+                        Historical activity from the data collected since this app started tracking it.
+                    </p>
+                </div>
                 {/* Segmented window control -- date range is the filter every reader reaches for first */}
                 <div className="ml-auto flex items-center gap-1 self-start rounded-full border border-border bg-surface p-1 md:self-auto">
                     {WINDOWS.map((w) => (

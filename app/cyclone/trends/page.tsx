@@ -4,12 +4,8 @@ import { Label } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { PageHero } from '@/components/layout/PageHero';
 import { HazardTrends } from '@/components/HazardTrends';
 import { useLocalStorageState } from '@/hooks/useLocalStorageState';
-import { HAZARD_CONFIG } from '@/lib/hazardConfig';
-
-const config = HAZARD_CONFIG.cyclone;
 
 interface StormSummary {
   sid: string;
@@ -133,13 +129,10 @@ function RecentSeasons() {
 
 export default function CycloneTrendsPage() {
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10">
-      <PageHero title={config.title} description={config.description} icon={<config.icon size={22} />} />
-      <div className="space-y-10">
-        <HazardTrends hazardSlug="cyclone" />
-        <div className="border-t border-border pt-8">
-          <RecentSeasons />
-        </div>
+    <div className="mx-auto w-full max-w-7xl space-y-10 px-4 pb-8 md:px-8 md:pb-10">
+      <HazardTrends hazardSlug="cyclone" />
+      <div className="border-t border-border pt-8">
+        <RecentSeasons />
       </div>
     </div>
   );

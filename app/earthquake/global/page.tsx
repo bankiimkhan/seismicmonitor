@@ -1,6 +1,5 @@
 "use client";
 import { Card } from '@/components/ui/Card';
-import { PageHero } from '@/components/layout/PageHero';
 import { Input, Label } from '@/components/ui/Input';
 import { QuakeList } from '@/components/QuakeList';
 import { QuakeTable } from '@/components/QuakeTable';
@@ -60,12 +59,7 @@ export default function GlobalPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10">
-
-      <PageHero
-        title={t('home.globalDashboard')}
-        description={<>{t('home.globalDashboardDesc')} (USGS + NCS)</>}
-      />
+    <div className="mx-auto w-full max-w-7xl px-4 pb-8 md:px-8 md:pb-10">
 
       {/* TOOLBAR */}
       <Card className="mb-6">

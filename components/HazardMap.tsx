@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Map as MapLibreMap, Marker, NavigationControl, Popup, LngLatBounds, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { CoverageNotice } from '@/components/CoverageNotice';
 import { useHazardEvents } from '@/hooks/useHazardEvents';
 import { HAZARD_CONFIG, type HazardSlug } from '@/lib/hazardConfig';
 
@@ -158,26 +159,39 @@ export function HazardMap({ hazardSlug, className = '' }: HazardMapProps) {
     }, [points]);
 
     if (error && points.length === 0) {
-        return <div className="rounded-lg border border-border bg-surface p-6 text-sm text-foreground-muted">{error}</div>;
+        return (
+            <div className="space-y-4">
+                <CoverageNotice notice={config.coverageNotice} />
+                <div className="rounded-lg border border-border bg-surface p-6 text-sm text-foreground-muted">{error}</div>
+            </div>
+        );
     }
 
     return (
-        <div className="relative">
-            <div ref={containerRef} className={`w-full overflow-hidden rounded-lg border border-border ${className}`} />
+        <div className="space-y-4">
+            {/* Local, Global and Trends all carry this; Map was the one tab that
+                didn't, so the landslide map -- which is empty because nothing
+                publishes to it, not because the world is quiet -- was showing a
+                blank basemap with no explanation anywhere on the page. */}
+            <CoverageNotice notice={config.coverageNotice} />
 
-            {loading && points.length === 0 && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 backdrop-blur-sm">
-                    <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground-muted shadow-md">
-                        <span className="live-dot h-2 w-2 rounded-full bg-accent" />
-                        Loading…
+            <div className="relative">
+                <div ref={containerRef} className={`w-full overflow-hidden rounded-lg border border-border ${className}`} />
+
+                {loading && points.length === 0 && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 backdrop-blur-sm">
+                        <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm text-foreground-muted shadow-md">
+                            <span className="live-dot h-2 w-2 rounded-full bg-accent" />
+                            Loading…
+                        </div>
                     </div>
-                </div>
-            )}
-            {!loading && points.length === 0 && !error && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 p-6 text-center text-sm text-foreground-muted backdrop-blur-sm">
-                    {config.emptyTitle}
-                </div>
-            )}
+                )}
+                {!loading && points.length === 0 && !error && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 p-6 text-center text-sm text-foreground-muted backdrop-blur-sm">
+                        {config.emptyTitle}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

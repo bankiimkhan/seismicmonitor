@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, use as usePromise } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Reveal } from '@/components/effects/Reveal';
 import { getSeverity, Tag, type Severity } from '@/components/ui/Badge';
@@ -59,7 +59,17 @@ export default function QuakeDetailPage({ params }: { params: Promise<{ id: stri
     const { id: rawId } = usePromise(params);
     const id = decodeURIComponent(rawId);
     const { t } = useT();
+    const router = useRouter();
     const { location } = useLocation();
+
+    // "Back" used to be a hard link to "/", so arriving here from the global
+    // list, a map marker or a search result and pressing it dumped you on the
+    // Overview page instead of the list you were reading. Real history where
+    // there is any; Overview only for a cold landing (shared link, new tab).
+    const goBack = () => {
+        if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+        else router.push('/');
+    };
 
     // Instant path: if this page was reached by clicking a card/marker that
     // was already showing full quake data, QuakeList/QuakeMap stashed it in
@@ -138,10 +148,14 @@ export default function QuakeDetailPage({ params }: { params: Promise<{ id: stri
 
     return (
         <div className="mx-auto w-full max-w-2xl px-4 py-8 md:px-8 md:py-12">
-            <Link href="/" className="link-underline mb-6 inline-flex items-center gap-1 text-sm font-medium text-foreground-muted transition-colors hover:text-foreground">
+            <button
+                type="button"
+                onClick={goBack}
+                className="link-underline mb-6 inline-flex items-center gap-1 text-sm font-medium text-foreground-muted transition-colors hover:text-foreground"
+            >
                 <ChevronLeftIcon size={14} />
                 {t('quake.backToList')}
-            </Link>
+            </button>
 
             <Reveal variant="scale">
             <Card elevated className="mb-6 rounded-xl">

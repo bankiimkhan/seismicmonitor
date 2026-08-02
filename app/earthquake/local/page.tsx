@@ -1,6 +1,5 @@
 "use client";
 import { Card } from '@/components/ui/Card';
-import { PageHero } from '@/components/layout/PageHero';
 import { Input, Label } from '@/components/ui/Input';
 import { QuakeList } from '@/components/QuakeList';
 import { QuakeTable } from '@/components/QuakeTable';
@@ -90,18 +89,13 @@ export default function LocalPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10">
-
-      <PageHero
-        title={t('home.localArchive')}
-        actions={location && (
-          <LocationSwitcher current={location} onChangeLocation={changeLocation} onSelectSaved={setManualLocation} />
-        )}
-      />
+    <div className="mx-auto w-full max-w-7xl px-4 pb-8 md:px-8 md:pb-10">
 
       <LocationPrompt status={locationStatus} onAllow={requestGeolocation} onManual={setManualLocation} />
 
-      {/* TOOLBAR */}
+      {/* TOOLBAR -- the location this page is scoped to is a filter like any
+          other, so it sits with the rest of them (and matches where HazardFeed
+          already puts it) rather than off in the page header. */}
       <Card className="mb-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div>
@@ -147,13 +141,19 @@ export default function LocalPage() {
             />
           </div>
         </div>
+
+        {location && (
+          <div className="mt-4 border-t border-border pt-4">
+            <LocationSwitcher current={location} onChangeLocation={changeLocation} onSelectSaved={setManualLocation} />
+          </div>
+        )}
       </Card>
 
       {/* RESULTS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-foreground-muted">
-            {t('filters.recordsFound', { count: filteredQuakes.length, plural: filteredQuakes.length === 1 ? '' : 's' })}
+            {t('filters.eventsFound', { count: filteredQuakes.length, plural: filteredQuakes.length === 1 ? '' : 's' })}
           </p>
           <ExportButtons quakes={filteredQuakes} />
         </div>

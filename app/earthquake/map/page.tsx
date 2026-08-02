@@ -1,7 +1,6 @@
 "use client";
 import { useMemo } from 'react';
 import { Card } from '@/components/ui/Card';
-import { PageHero } from '@/components/layout/PageHero';
 import { QuakeMap } from '@/components/QuakeMap';
 import { useEarthquakes } from '@/hooks/useEarthquakes';
 import { useT } from '@/lib/i18n/LocaleProvider';
@@ -42,21 +41,21 @@ export default function MapPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10">
-      <PageHero
-        title={t('nav.map')}
-        description={<>{t('home.globalDashboardDesc')} · {t('filters.last7')}</>}
-        actions={<span className="text-xs font-medium text-foreground-subtle">{mapQuakes.length} events</span>}
-      />
-
+    <div className="mx-auto w-full max-w-7xl px-4 pb-8 md:px-8 md:pb-10">
       {error && mapQuakes.length === 0 ? (
         <Card>{error}</Card>
       ) : (
         <div className="relative">
           <QuakeMap quakes={mapQuakes} className="h-[70vh] min-h-[420px] shadow-sm" />
 
-          {/* Severity legend overlay */}
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-3 rounded-lg border border-border bg-surface/90 px-3 py-2 text-xs text-foreground-muted shadow-md backdrop-blur">
+          {/* Legend + what's plotted, in one strip -- the event count used to
+              live up in the page header, a screen away from the markers it
+              counts. */}
+          <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border bg-surface/90 px-3 py-2 text-xs text-foreground-muted shadow-md backdrop-blur sm:right-auto">
+            <span className="font-medium text-foreground">
+              {mapQuakes.length} events · {t('filters.last7')}
+            </span>
+            <span aria-hidden="true" className="hidden h-3 w-px bg-border sm:block" />
             {LEGEND.map((l) => (
               <span key={l.label} className="flex items-center gap-1.5">
                 <span className={`h-2 w-2 rounded-full ${l.color}`} />

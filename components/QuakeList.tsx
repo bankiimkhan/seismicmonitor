@@ -141,7 +141,7 @@ export const QuakeList: React.FC<QuakeListProps> = ({
                         <Card
                             interactive
                             padding="none"
-                            className={`min-w-0 flex-1 rounded-xl ${isNew ? 'animate-highlight-new' : ''}`}
+                            className={`group/card min-w-0 flex-1 rounded-xl ${isNew ? 'animate-highlight-new' : ''}`}
                         >
                             <Link href={detailHref} className="block p-5" onClick={stash}>
                                 <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
@@ -158,10 +158,16 @@ export const QuakeList: React.FC<QuakeListProps> = ({
                                             </p>
                                         )}
                                     </div>
-                                    <div className="flex-shrink-0 text-right">
+                                    <div className="flex flex-shrink-0 items-center gap-2 text-right">
                                         <div className={`font-mono text-3xl font-bold tabular-nums ${severity ? SEVERITY_TEXT[severity] : 'text-foreground-subtle'}`}>
                                             {quake.properties.mag !== null ? quake.properties.mag.toFixed(1) : '—'}
                                         </div>
+                                        {/* Carries the affordance the separate
+                                            "View details" link used to: the whole
+                                            card is already this same link, so that
+                                            footer copy was a second control for an
+                                            action the card itself performs. */}
+                                        <ArrowUpRightIcon size={14} className="text-foreground-subtle transition-transform group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5" aria-hidden="true" />
                                     </div>
                                 </div>
                             </Link>
@@ -169,20 +175,14 @@ export const QuakeList: React.FC<QuakeListProps> = ({
                                 <div className="flex items-center gap-2">
                                     {quake.properties.source && <Tag>{quake.properties.source}</Tag>}
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <ShareButton
-                                        title={quake.properties.place}
-                                        text={quake.properties.mag !== null
-                                            ? `M${quake.properties.mag.toFixed(1)} -- ${quake.properties.place}`
-                                            : quake.properties.place}
-                                        url={typeof window !== 'undefined' ? `${window.location.origin}${detailHref}` : detailHref}
-                                        eventName="share_quake"
-                                    />
-                                    <Link href={detailHref} onClick={stash} className="group flex items-center gap-1 text-xs font-medium text-foreground-muted transition-colors hover:text-accent">
-                                        {t('quake.viewDetails')}
-                                        <ArrowUpRightIcon size={12} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                                    </Link>
-                                </div>
+                                <ShareButton
+                                    title={quake.properties.place}
+                                    text={quake.properties.mag !== null
+                                        ? `M${quake.properties.mag.toFixed(1)} -- ${quake.properties.place}`
+                                        : quake.properties.place}
+                                    url={typeof window !== 'undefined' ? `${window.location.origin}${detailHref}` : detailHref}
+                                    eventName="share_quake"
+                                />
                             </div>
                         </Card>
                     </div>

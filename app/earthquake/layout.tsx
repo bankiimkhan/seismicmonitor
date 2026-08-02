@@ -1,15 +1,14 @@
-import { HazardSubNav } from '@/components/layout/HazardSubNav';
+import { HazardSectionHero } from '@/components/layout/HazardSectionHero';
 
-// Persists across Local/Global/Map/Trends navigation (Next.js layouts don't
-// remount on sibling route changes) -- each sub-page keeps rendering its own
-// PageHero/content wrapper unchanged, this just adds the tab bar above it in
-// a sibling container (not nested inside each page's own max-w-7xl wrapper,
-// to avoid doubling up horizontal padding).
+// One hero + tab bar for the whole section, rendered here rather than in each
+// of the four sub-pages (Next.js layouts don't remount on sibling route
+// changes, so it stays put while you move between Local/Global/Map/Trends).
+// Sub-pages render only their own content, in a sibling container.
 export default function EarthquakeLayout({ children }: { children: React.ReactNode }) {
     return (
         <>
-            <div className="mx-auto w-full max-w-7xl px-4 pt-6 md:px-8">
-                <HazardSubNav basePath="/earthquake" />
+            <div className="mx-auto w-full max-w-7xl px-4 pt-8 md:px-8 md:pt-10">
+                <HazardSectionHero slug="earthquake" />
             </div>
             {children}
         </>
