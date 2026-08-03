@@ -19,15 +19,18 @@ if (typeof window !== 'undefined') {
     setWorkerUrl('/maplibre-gl-worker.mjs');
 }
 
+// Matches the panel's severity trio (see --danger/--warning/--success in
+// globals.css). Literal hex rather than the CSS vars because maplibre paints
+// to a canvas and never resolves custom properties.
 const SEVERITY_COLOR: Record<string, string> = {
-    critical: '#dc2626',
-    warning: '#d97706',
-    stable: '#16a34a',
+    critical: '#ff3b21',
+    warning: '#ff8c1a',
+    stable: '#ffc93c',
 };
 // Neutral grey for an event with no reported magnitude -- borrowing 'stable'
 // green would claim a measurement we don't have (same "null isn't 0"
 // convention as /api/hazards and /api/trends).
-const UNKNOWN_MAG_COLOR = '#71717a';
+const UNKNOWN_MAG_COLOR = '#96601a';
 
 export interface MapQuake {
     id: string;

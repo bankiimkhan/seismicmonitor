@@ -57,7 +57,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                         <div
                             key={t.id}
                             role="status"
-                            className="animate-toast-in pointer-events-auto flex items-start gap-2.5 rounded-lg border border-border-strong/80 bg-surface/95 backdrop-blur-xl px-4 py-3 text-sm font-medium text-foreground shadow-[0_10px_30px_rgba(0,0,0,0.9),0_0_16px_rgba(0,240,255,0.12)]"
+                            className="bezel animate-toast-in pointer-events-auto flex items-start gap-2.5 bg-background/97 backdrop-blur-xl px-4 py-3 text-xs tracking-wider text-foreground shadow-[var(--glow-md)]"
                         >
                             {TONE_ICON[t.tone]}
                             <span className="flex-1 leading-snug">{t.message}</span>

@@ -95,7 +95,7 @@ export const HazardTable: React.FC<HazardTableProps> = ({
             <div className="max-h-[65vh] overflow-x-auto overflow-y-auto">
                 <table className="w-full min-w-[640px] border-collapse text-sm">
                     <thead>
-                        <tr className="sticky top-0 z-10 border-b border-border/90 bg-[#090b0e]/95 backdrop-blur-xl">
+                        <tr className="sticky top-0 z-10 border-b-2 border-accent/50 bg-background/95 backdrop-blur-xl">
                             <th className="group px-4 py-3 text-left"><SortHeader label={valueLabel} active={sort.key === 'value'} dir={sort.dir} onClick={() => toggleSort('value')} /></th>
                             <th className="px-2 py-3 text-left"><span className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">Location</span></th>
                             <th className="px-2 py-3 text-left"><span className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">Confidence</span></th>

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function VolcanoIndexPage() {
-    redirect('/volcano/global');
+    redirect('/volcano/local');
 }

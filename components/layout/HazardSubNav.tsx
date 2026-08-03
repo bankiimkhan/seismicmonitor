@@ -21,7 +21,7 @@ export function HazardSubNav({ basePath }: HazardSubNavProps) {
     const { t } = useT();
 
     return (
-        <div className="flex items-center gap-1 self-start overflow-x-auto rounded-full border border-border/80 bg-surface/90 p-1 shadow-[0_4px_20px_rgba(0,0,0,0.7)] backdrop-blur-md md:self-auto">
+        <div className="bezel flex items-center gap-1 self-start overflow-x-auto p-1 md:self-auto">
             {TABS.map((tab) => {
                 const href = `${basePath}/${tab.key}`;
                 const active = pathname === href;
@@ -29,7 +29,8 @@ export function HazardSubNav({ basePath }: HazardSubNavProps) {
                     <Link
                         key={tab.key}
                         href={href}
-                        className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold tracking-wide transition-all duration-200 ${active ? 'bg-accent text-accent-foreground shadow-[0_0_16px_rgba(0,240,255,0.45)]' : 'text-foreground-muted hover:text-accent hover:bg-surface-hover/60'}`}
+                        aria-current={active ? 'page' : undefined}
+                        className={`pad flex-shrink-0 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] ${active ? 'bg-accent text-accent-foreground shadow-[var(--glow-sm)]' : 'bg-transparent text-foreground-muted hover:text-accent'}`}
                     >
                         {t(tab.labelKey)}
                     </Link>

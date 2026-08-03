@@ -1,5 +1,6 @@
 import React from 'react';
-import { Card } from './Card';
+import { Panel } from './Panel';
+import { Readout } from './Readout';
 import { AnimatedCounter } from './AnimatedCounter';
 import { Sparkline } from './Sparkline';
 import { ArrowUpIcon, ArrowDownIcon } from './icons';
@@ -19,48 +20,76 @@ interface StatCardProps {
     trend?: { value: number; label?: string } | null;
     sparkline?: number[];
     elevated?: boolean;
-    /** Adds hover-lift + pointer affordance for stat cards that are themselves a click target (wrap in Link separately). */
+    /** Adds hover bloom + pointer affordance for stat cards that are themselves a click target (wrap in Link separately). */
     interactive?: boolean;
     className?: string;
     footer?: React.ReactNode;
 }
 
+/**
+ * One instrument module: silkscreened name on the bezel, the value in a lit
+ * display window, supporting readings printed underneath.
+ */
 export function StatCard({
     label, value, placeholder, decimals = 0, prefix = '', suffix = '', icon, trend, sparkline, elevated, interactive, className = '', footer,
 }: StatCardProps) {
     const trendPositive = !!trend && trend.value >= 0;
+    const unknown = placeholder !== undefined;
+    // The ghost cells must match the settled value's width, not the tweened
+    // one, or they'd resize under the counter as it counts up.
+    const settled = `${prefix}${value.toFixed(decimals)}${suffix}`;
 
     return (
-        <Card elevated={elevated} interactive={interactive} className={`flex flex-col gap-3 ${className}`}>
-            <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">{label}</p>
-                {icon && (
-                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent shadow-[0_0_10px_rgba(0,240,255,0.2)]">
-                        {icon}
-                    </span>
-                )}
-            </div>
-            <div className="flex items-end justify-between gap-3">
-                <p className={`font-mono text-3xl font-bold tracking-tight ${placeholder !== undefined ? 'text-foreground-subtle' : 'text-foreground drop-shadow-[0_0_10px_rgba(0,240,255,0.15)]'}`}>
-                    {placeholder !== undefined
-                        ? placeholder
-                        : <AnimatedCounter value={value} decimals={decimals} prefix={prefix} suffix={suffix} />}
-                </p>
+        <Panel
+            title={label}
+            titleAlign="left"
+            interactive={interactive}
+            tone={elevated ? 'accent' : 'dim'}
+            className={`flex flex-col gap-3 ${className}`}
+        >
+            {icon && (
+                <span
+                    className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center text-accent/70"
+                    aria-hidden="true"
+                >
+                    {icon}
+                </span>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+                <Readout
+                    size="lg"
+                    // Fixed floor so every window in a grid of tiles is the
+                    // same size whatever its value -- ragged display widths
+                    // were what made the row look unconsidered.
+                    className="min-w-[6.5rem] text-center"
+                    align="center"
+                    tone={unknown ? 'off' : 'accent'}
+                    value={
+                        unknown
+                            ? placeholder
+                            : <AnimatedCounter value={value} decimals={decimals} prefix={prefix} suffix={suffix} />
+                    }
+                    ghostFor={unknown ? undefined : settled}
+                />
                 {sparkline && sparkline.length > 1 && (
-                    <Sparkline data={sparkline} className="h-8 w-20 flex-shrink-0" />
+                    <Sparkline data={sparkline} className="h-9 w-24 flex-shrink-0" />
                 )}
             </div>
+
             {(trend || footer) && (
-                <div className="flex items-center justify-between text-xs font-mono">
-                    {trend ? (
-                        <span className={`inline-flex items-center gap-1 font-semibold ${trendPositive ? 'text-success drop-shadow-[0_0_6px_rgba(0,255,157,0.3)]' : 'text-danger drop-shadow-[0_0_6px_rgba(255,42,109,0.3)]'}`}>
+                <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.14em]">
+                    {trend && (
+                        <span className={`inline-flex items-center gap-1 font-bold ${trendPositive ? 'text-success' : 'text-danger'}`}>
                             {trendPositive ? <ArrowUpIcon size={12} /> : <ArrowDownIcon size={12} />}
                             {Math.abs(trend.value).toFixed(1)}{trend.label ?? ''}
                         </span>
-                    ) : <span />}
-                    {footer && <span className="text-foreground-subtle">{footer}</span>}
+                    )}
+                    {/* No empty spacer when there's no trend -- it was pushing
+                        a lone footer out to the right edge for no reason. */}
+                    {footer && <span className="min-w-0 truncate text-foreground-muted">{footer}</span>}
                 </div>
             )}
-        </Card>
+        </Panel>
     );
 }

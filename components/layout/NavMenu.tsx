@@ -7,7 +7,7 @@ import { useT } from '@/lib/i18n/LocaleProvider';
 
 // Reorganized (per the navbar restructure) around hazard types instead of
 // earthquake-only Local/Global/Map -- each hazard link now points at that
-// hazard's section index (redirects to its own /global), and Local/Global/
+// hazard's section index (redirects to its own /local), and Local/Global/
 // Map/Trends live one level down as HazardSubNav tabs. Icons for the 5
 // non-earthquake hazards come straight from lib/hazardConfig.ts (same icon
 // used on that section's own PageHero) rather than being duplicated here.
@@ -51,9 +51,10 @@ export function NavMenu({ onNavigate }: { onNavigate?: () => void }) {
                         key={link.key}
                         href={link.href}
                         onClick={onNavigate}
-                        className={`group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${active ? 'bg-accent-subtle text-accent' : 'text-foreground-muted hover:bg-surface-hover hover:text-foreground'}`}
+                        aria-current={active ? 'page' : undefined}
+                        className={`pad group relative flex items-center gap-3 px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] ${active ? 'text-accent' : 'bg-transparent text-foreground-muted hover:text-accent'}`}
                     >
-                        {active && <span className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-accent shadow-[0_0_8px_1px_var(--accent)]" aria-hidden="true" />}
+                        {active && <span className="led led-on absolute bottom-2 left-0 top-2 w-1 rounded-none" aria-hidden="true" />}
                         <Icon size={18} strokeWidth={active ? 2 : 1.75} className="flex-shrink-0 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] motion-safe:group-hover:scale-110" />
                         <span className="truncate">{link.label}</span>
                     </Link>

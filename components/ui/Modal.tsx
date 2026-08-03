@@ -91,19 +91,19 @@ export function Modal({ open, onClose, children, title, className = '', placemen
                 aria-modal="true"
                 aria-label={title}
                 tabIndex={-1}
-                className={`relative z-10 flex flex-col border border-border-strong/90 bg-surface/95 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(0,240,255,0.15)] outline-none ${isLeft
-                        ? 'animate-drawer-in h-full w-[84vw] max-w-xs'
-                        : 'animate-panel-in m-auto max-h-[85vh] w-[92vw] max-w-lg rounded-xl'
+                className={`bezel relative z-10 flex flex-col bg-background/97 backdrop-blur-2xl shadow-[var(--glow-lg)] outline-none ${isLeft
+                        ? 'animate-drawer-in h-full w-[84vw] max-w-xs rounded-l-none'
+                        : 'animate-panel-in m-auto max-h-[85vh] w-[92vw] max-w-lg'
                     } ${className}`}
             >
                 {title && (
-                    <div className="flex flex-shrink-0 items-center justify-between border-b border-border/80 px-4 py-3 bg-surface/40">
-                        <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground">{title}</h2>
+                    <div className="flex flex-shrink-0 items-center justify-between border-b-2 border-accent/40 px-4 py-3">
+                        <h2 className="glow-text text-xs font-bold uppercase tracking-[0.2em] text-accent">{title}</h2>
                         {!hideCloseButton && (
                             <button
                                 onClick={onClose}
                                 aria-label="Close"
-                                className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-hover hover:text-accent"
+                                className="pad p-1.5 text-foreground-muted hover:text-accent"
                             >
                                 <XIcon size={16} />
                             </button>

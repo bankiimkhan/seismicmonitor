@@ -1,55 +1,99 @@
 @import "tailwindcss";
 
 :root {
-  /* Matte Black / Developer Dashboard Cyberpunk Palette */
-  --background: #060709;
-  --surface: #0e1117;
-  --surface-hover: #161c28;
-  --border: #1c2436;
-  --border-strong: #2a3650;
-  --foreground: #f3f4f6;
-  --foreground-muted: #9ca3af;
-  --foreground-subtle: #6b7280;
+  /* ------------------------------------------------------------------
+     VFD HARDWARE PANEL PALETTE
+     Amber vacuum-fluorescent readouts on an oxblood chassis. The whole
+     UI is drawn as outlined bezels rather than filled cards: fills are
+     reserved for things that are *lit* (readouts, engaged pads, LEDs),
+     so "has a fill" carries meaning instead of being decoration.
+     ------------------------------------------------------------------ */
+  /* Near-black, barely warm. The chassis must stay dark enough that a lit
+     amber line reads as *emitting* -- a brown background drags every stroke
+     down with it and the whole face goes muddy. */
+  --background: #150402;
+  --surface: #1e0704;
+  --surface-hover: #2b0d05;
+  --border: #b06a0e;
+  --border-strong: #e08c12;
+  --foreground: #ffcf7a;
+  --foreground-muted: #f0a63a;
+  --foreground-subtle: #b8791f;
 
-  --accent: #00f0ff;
-  --accent-hover: #33f3ff;
-  --accent-foreground: #060709;
-  --accent-subtle: rgba(0, 240, 255, 0.12);
+  --accent: #ffab1f;
+  --accent-hover: #ffd07a;
+  --accent-foreground: #150402;
+  --accent-subtle: rgba(255, 171, 31, 0.14);
+  /* Space-separated so it composes with rgb(... / <alpha>) below. */
+  --accent-rgb: 255 171 31;
 
-  --success: #00ff66;
-  --success-bg: rgba(0, 255, 102, 0.12);
-  --warning: #ffb700;
-  --warning-bg: rgba(255, 183, 0, 0.12);
-  --danger: #ff2a6d;
-  --danger-bg: rgba(255, 42, 109, 0.14);
+  /* Severity is a heat ramp -- gold, orange, red -- rather than the usual
+     green/amber/red. A green sat wrong inside an amber face (a table of
+     sub-M5 events turned the whole page green), and heat climbs
+     monotonically in both hue and lightness, so the order is legible even
+     desaturated. Nothing here is colour-only: Badge pairs each step with its
+     own glyph shape and written label, and tables print the magnitude. */
+  --success: #ffc93c;
+  --success-bg: rgba(255, 201, 60, 0.12);
+  --success-rgb: 255 201 60;
+  --warning: #ff8c1a;
+  --warning-bg: rgba(255, 140, 26, 0.13);
+  --warning-rgb: 255 140 26;
+  --danger: #ff3b21;
+  --danger-bg: rgba(255, 59, 33, 0.15);
+  --danger-rgb: 255 59 33;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* Hardware corners: tight and consistent, not pill-soft. */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 240, 255, 0.05);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
-  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.85), 0 0 16px -3px rgba(0, 240, 255, 0.12);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 28px -2px rgba(0, 136, 255, 0.18);
-  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.95), 0 0 44px 0 rgba(168, 85, 247, 0.2);
+  /* Panel chrome */
+  --bezel-width: 2px;
+  /* The page colour exactly, so the chip cleanly interrupts the bezel line
+     behind it. Any tint at all here reads as a coloured sticker stuck on the
+     panel rather than a gap in the silkscreen. */
+  --legend-bg: #150402;
+  --screen-bg: rgba(255, 171, 31, 0.07);
+  --pad-bg: rgba(255, 171, 31, 0.14);
+  --pad-bg-hover: rgba(255, 171, 31, 0.28);
+  --led-off: rgba(255, 171, 31, 0.05);
 
-  --glow-cyan: #00f0ff;
-  --glow-blue: #0088ff;
-  --glow-purple: #a855f7;
-  --glow-lime: #00ff66;
+  /* Emissive glows, in place of the drop shadows a flat-material UI
+     would use. Lit things bloom; unlit things have no shadow at all. */
+  --glow-xs: 0 0 6px rgb(var(--accent-rgb) / 0.3);
+  --glow-sm: 0 0 10px rgb(var(--accent-rgb) / 0.35);
+  --glow-md: 0 0 18px rgb(var(--accent-rgb) / 0.4);
+  --glow-lg: 0 0 30px rgb(var(--accent-rgb) / 0.5);
+  --glow-xl: 0 0 46px rgb(var(--accent-rgb) / 0.55);
 
-  --ambient-mesh-opacity: 0.2;
-  --ambient-blob-opacity: 0.22;
-  --ambient-grid-opacity: 0.05;
+  --shadow-xs: var(--glow-xs);
+  --shadow-sm: var(--glow-sm);
+  --shadow-md: var(--glow-md);
+  --shadow-lg: var(--glow-lg);
+  --shadow-xl: var(--glow-xl);
+
+  --glow-cyan: #ffab1f;
+  --glow-blue: #ff7a0d;
+  --glow-purple: #c2410c;
+  --glow-lime: #ffb020;
+  --glow-teal: #ff8c1a;
+
+  /* Deliberately near-zero. Any real haze here greys out the amber and the
+     panel stops looking lit -- the atmosphere is meant to be felt at the
+     edges, not seen across the middle of the plate. */
+  --ambient-mesh-opacity: 0.05;
+  --ambient-blob-opacity: 0.05;
+  --ambient-grid-opacity: 0.025;
   --ambient-noise-opacity: 0.02;
-  --hero-glow-opacity: 0.25;
+  --hero-glow-opacity: 0.12;
 
-  --chart-1: #00f0ff;
-  --chart-2: #00ff66;
-  --chart-3: #ffb700;
-  --chart-4: #a855f7;
-  --chart-5: #ff2a6d;
+  --chart-1: #ffab1f;
+  --chart-2: #ffc93c;
+  --chart-3: #ff8c1a;
+  --chart-4: #ff3b21;
+  --chart-5: #ffe0a8;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
@@ -58,50 +102,41 @@
   --duration-slow: 300ms;
 }
 
+/* The panel is a single fixed instrument face -- there is no light
+   variant of a VFD. Both stored theme values resolve to the same set so
+   the persisted preference and the toggle stay harmless. */
 :root[data-theme="dark"],
 :root[data-theme="light"] {
-  --background: #060709;
-  --surface: #0e1117;
-  --surface-hover: #161c28;
-  --border: #1c2436;
-  --border-strong: #2a3650;
-  --foreground: #f3f4f6;
-  --foreground-muted: #9ca3af;
-  --foreground-subtle: #6b7280;
+  --background: #150402;
+  --surface: #1e0704;
+  --surface-hover: #2b0d05;
+  --border: #b06a0e;
+  --border-strong: #e08c12;
+  --foreground: #ffcf7a;
+  --foreground-muted: #f0a63a;
+  --foreground-subtle: #b8791f;
 
-  --accent: #00f0ff;
-  --accent-hover: #33f3ff;
-  --accent-foreground: #060709;
-  --accent-subtle: rgba(0, 240, 255, 0.12);
+  --accent: #ffab1f;
+  --accent-hover: #ffd07a;
+  --accent-foreground: #150402;
+  --accent-subtle: rgba(255, 171, 31, 0.14);
 
-  --success: #00ff66;
-  --success-bg: rgba(0, 255, 102, 0.12);
-  --warning: #ffb700;
-  --warning-bg: rgba(255, 183, 0, 0.12);
-  --danger: #ff2a6d;
-  --danger-bg: rgba(255, 42, 109, 0.14);
+  --success: #ffc93c;
+  --success-bg: rgba(255, 201, 60, 0.12);
+  --warning: #ff8c1a;
+  --warning-bg: rgba(255, 140, 26, 0.13);
+  --danger: #ff3b21;
+  --danger-bg: rgba(255, 59, 33, 0.15);
 
-  --chart-1: #00f0ff;
-  --chart-2: #00ff66;
-  --chart-3: #ffb700;
-  --chart-4: #a855f7;
-  --chart-5: #ff2a6d;
-
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 240, 255, 0.05);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
-  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.85), 0 0 16px -3px rgba(0, 240, 255, 0.12);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.9), 0 0 28px -2px rgba(0, 136, 255, 0.18);
-  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.95), 0 0 44px 0 rgba(168, 85, 247, 0.2);
-
-  --ambient-mesh-opacity: 0.2;
-  --ambient-blob-opacity: 0.22;
-  --ambient-grid-opacity: 0.05;
-  --ambient-noise-opacity: 0.02;
-  --hero-glow-opacity: 0.25;
+  --chart-1: #ffab1f;
+  --chart-2: #ffc93c;
+  --chart-3: #ff8c1a;
+  --chart-4: #ff3b21;
+  --chart-5: #ffe0a8;
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-mono), ui-monospace, monospace;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --color-background: var(--background);
@@ -148,31 +183,221 @@
 }
 
 html {
-  color-scheme: light dark;
-}
-
-html[data-theme="dark"] {
   color-scheme: dark;
 }
 
+html[data-theme="dark"],
 html[data-theme="light"] {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
+  /* Wide tracking everywhere is what sells the silkscreened-panel read;
+     the mono face is set as --font-sans above so it applies app-wide. */
+  letter-spacing: 0.04em;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* ====================================================================
+   PANEL CHROME
+   ==================================================================== */
+
+/* These live in @layer components on purpose. Tailwind v4 puts utilities in
+   their own layer, and *unlayered* CSS outranks every layer no matter the
+   source order -- so an unlayered `.pad { background: ... }` silently beat
+   `bg-accent` on it, and every primary button and active tab in the app
+   rendered as an idle key. Inside the components layer, utilities win. */
+@layer components {
+  /* Outlined bezel: the base box of every module on the face. */
+  .bezel {
+    border: var(--bezel-width) solid var(--accent);
+    border-radius: var(--radius-lg);
+    background: transparent;
+    box-shadow: var(--glow-xs), inset 0 0 24px rgb(var(--accent-rgb) / 0.05);
+  }
+
+  /* Still amber, just not blooming. Dropping to a brown border here was what
+     made most of the page read as mud -- the difference between a lit module
+     and a quiet one should be the glow, not the hue. */
+  .bezel-dim {
+    border-color: rgb(var(--accent-rgb) / 0.55);
+    box-shadow: inset 0 0 24px rgb(var(--accent-rgb) / 0.03);
+  }
+}
+
+/* Legend chip that sits *on* the bezel's top edge, interrupting it --
+   the signature detail of a silkscreened hardware panel. Positioned by
+   the Panel component; this class only carries the paint. */
+.legend {
+  background: var(--legend-bg);
+  color: var(--accent);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.55);
+}
+
+/* Recessed display window that readouts sit inside. */
+@layer components {
+  .screen {
+    background: var(--screen-bg);
+    border-radius: var(--radius-md);
+    box-shadow:
+      inset 0 2px 10px rgba(0, 0, 0, 0.55),
+      inset 0 0 0 1px rgb(var(--accent-rgb) / 0.1);
+  }
+}
+
+/* ====================================================================
+   VFD DOT-MATRIX TYPE
+   The glyph fill is a dark grid over amber, both clipped to the text,
+   so the numerals read as an illuminated dot matrix rather than solid
+   type. `filter` (not text-shadow) supplies the bloom, because a
+   background-clipped glyph has no text color left to shadow.
+   ==================================================================== */
+/* Cell size is in em, so the matrix scales with the type. Keep it fine and
+   the dividing lines soft -- a coarse, opaque grid eats thin strokes and the
+   glyph stops being readable, which is why this is reserved for large
+   numerals and never applied to running text. */
+.vfd {
+  --vfd-color: var(--accent);
+  --vfd-cell: 0.11em;
+  --vfd-gap: 0.03em;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.42) 0 var(--vfd-gap),
+      transparent var(--vfd-gap) var(--vfd-cell)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.42) 0 var(--vfd-gap),
+      transparent var(--vfd-gap) var(--vfd-cell)
+    ),
+    linear-gradient(var(--vfd-color), var(--vfd-color));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgb(var(--accent-rgb) / 0.55));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.vfd-danger {
+  --vfd-color: var(--danger);
+  filter: drop-shadow(0 0 10px rgb(var(--danger-rgb) / 0.55));
+}
+.vfd-warning {
+  --vfd-color: var(--warning);
+  filter: drop-shadow(0 0 10px rgb(var(--warning-rgb) / 0.55));
+}
+.vfd-success {
+  --vfd-color: var(--success);
+  filter: drop-shadow(0 0 10px rgb(var(--success-rgb) / 0.55));
+}
+
+/* Unlit segments behind the live value, the way a real display shows
+   its full character cell when only part of it is driven. */
+.vfd-ghost {
+  --vfd-color: rgb(var(--accent-rgb) / 0.13);
+  filter: none;
+}
+
+/* Plain glowing amber text, for labels rather than numerals. */
+.glow-text {
+  text-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.5);
+}
+
+/* ====================================================================
+   LEDS, PADS, METERS
+   ==================================================================== */
+.led {
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  background: var(--led-off);
+  transition: background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.led-on {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.75);
+}
+
+.led-danger {
+  border-color: var(--danger);
+}
+.led-danger.led-on {
+  background: var(--danger);
+  box-shadow: 0 0 10px rgb(var(--danger-rgb) / 0.75);
+}
+.led-warning {
+  border-color: var(--warning);
+}
+.led-warning.led-on {
+  background: var(--warning);
+  box-shadow: 0 0 10px rgb(var(--warning-rgb) / 0.75);
+}
+.led-success {
+  border-color: var(--success);
+}
+.led-success.led-on {
+  background: var(--success);
+  box-shadow: 0 0 10px rgb(var(--success-rgb) / 0.75);
+}
+
+/* Chunky translucent key pad. */
+@layer components {
+  .pad {
+    background: var(--pad-bg);
+    border-radius: var(--radius-md);
+    color: var(--accent);
+    transition: background-color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+  }
+  .pad:hover:not(:disabled) {
+    background: var(--pad-bg-hover);
+    box-shadow: var(--glow-sm);
+  }
+  .pad:active:not(:disabled) {
+    transform: translateY(1px);
+    background: var(--accent);
+    color: var(--accent-foreground);
+    box-shadow: var(--glow-md);
+  }
+}
+
+/* ====================================================================
+   CRT / PANEL ATMOSPHERE
+   ==================================================================== */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.16) 0 1px,
+    transparent 1px 3px
+  );
+  border-radius: inherit;
 }
 
 /* Utilities */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.25; }
 }
 
 .live-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
+  animation: pulse-dot 1.4s steps(1, end) infinite;
 }
 
 @keyframes fade-in-up {
@@ -184,9 +409,10 @@ body {
   animation: fade-in-up 0.35s ease-out both;
 }
 
+/* A new row arrives the way a segment lights: on, then decaying. */
 @keyframes highlight-new {
-  0% { background-color: var(--accent); opacity: 0.12; }
-  100% { background-color: transparent; opacity: 1; }
+  0% { background-color: rgb(var(--accent-rgb) / 0.35); }
+  100% { background-color: transparent; }
 }
 
 .animate-highlight-new {
@@ -199,18 +425,18 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
+  background: linear-gradient(90deg, rgb(var(--accent-rgb) / 0.06) 25%, rgb(var(--accent-rgb) / 0.18) 50%, rgb(var(--accent-rgb) / 0.06) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-/* Cyber Hover-lift: flat border and soft glow transition without 3D lift */
+/* Hover reads as the module powering up: the bezel brightens and blooms. */
 .hover-lift {
   transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), background-color var(--duration-base) var(--ease-out);
 }
 .hover-lift:hover {
-  box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
-  border-color: rgba(0, 240, 255, 0.45);
+  box-shadow: var(--glow-md), inset 0 0 24px rgb(var(--accent-rgb) / 0.1);
+  border-color: var(--accent-hover);
 }
 
 /* Overlay primitives: Modal / Dropdown / Tooltip */
@@ -338,35 +564,102 @@ body {
   background-size: 100% 1px;
 }
 
-/* Custom Cyber Scrollbars */
+/* Scrollbars as a slider track cut into the chassis */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: var(--background);
+  border-left: 1px solid rgb(var(--accent-rgb) / 0.15);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: rgb(var(--accent-rgb) / 0.35);
+  border-radius: 1px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
   box-shadow: 0 0 10px var(--accent);
 }
 
-/* Table Alternating Cyber Rows */
-table tbody tr:nth-child(even) {
-  background-color: rgba(255, 255, 255, 0.015);
-}
+/* Tables read as a printed register: ruled rows, no zebra tint. */
+table tbody tr:nth-child(even),
 table tbody tr:nth-child(odd) {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: transparent;
 }
 table tbody tr {
-  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+  border-bottom: 1px solid rgb(var(--accent-rgb) / 0.14);
+  transition: background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
 }
 table tbody tr:hover {
-  background-color: rgba(0, 240, 255, 0.06) !important;
+  background-color: rgb(var(--accent-rgb) / 0.09) !important;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Selection reads as an inverted lit segment. */
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* ====================================================================
+   MAP CHROME
+   The basemap is a light full-color vector style. Tinting is applied to
+   the canvas *only* -- markers are real DOM elements (see QuakeMap's
+   `new Marker({ element })`), so they sit outside this filter and keep
+   their severity hue, which is the one thing on the map that must not
+   go monochrome.
+   ==================================================================== */
+.maplibregl-canvas {
+  filter: invert(1) grayscale(1) sepia(1) hue-rotate(-22deg) saturate(3.2)
+    brightness(0.78) contrast(1.08);
+}
+
+.maplibregl-ctrl-group {
+  background: var(--background) !important;
+  border: 2px solid var(--accent) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--glow-xs) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button {
+  background: transparent !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgb(var(--accent-rgb) / 0.35) !important;
+}
+.maplibregl-ctrl-group button:hover {
+  background: var(--pad-bg-hover) !important;
+}
+/* The control glyphs ship as dark SVG data-URIs; invert to amber-on-dark. */
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) sepia(1) saturate(6) hue-rotate(-12deg) brightness(1.05);
+}
+
+.maplibregl-popup-content {
+  background: var(--background) !important;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glow-md) !important;
+  color: var(--foreground);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.maplibregl-popup-tip {
+  border-top-color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+}
+.maplibregl-popup-close-button {
+  color: var(--accent);
+  font-size: 16px;
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(28, 7, 5, 0.85) !important;
+  border-radius: var(--radius-sm);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--foreground-muted) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -375,12 +668,15 @@ table tbody tr:hover {
   .animate-drawer-in, .animate-toast-in, .animate-page-in, .animate-count-pop,
   .chart-line-path, .animate-mesh-drift, .animate-float-blob-a,
   .animate-float-blob-b, .animate-float-blob-c, .ambient-particle,
-  .reveal, .link-underline {
+  .reveal, .link-underline, .meter-segment {
     animation: none !important;
     transition: none;
     stroke-dashoffset: 0 !important;
   }
   .hover-lift:hover {
+    transform: none;
+  }
+  .pad:active:not(:disabled) {
     transform: none;
   }
   .accordion-panel {

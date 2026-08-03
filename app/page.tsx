@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Card } from '@/components/ui/Card';
+import { Panel } from '@/components/ui/Panel';
+import { Readout } from '@/components/ui/Readout';
 import { Accordion } from '@/components/ui/Accordion';
 import { StatCard } from '@/components/ui/StatCard';
+import { ActivityMeters } from '@/components/ActivityMeters';
 import { PageHero } from '@/components/layout/PageHero';
 import {
   ActivityIcon, FlameIcon, VolcanoIcon, LandslideIcon, CycloneIcon, WavesIcon,
@@ -223,10 +225,22 @@ export default function Home() {
           to sit in here too, which put a non-hazard in the hazard grid, repeated
           the region the header above already names, and sent you to the local
           earthquake archive from a label that never said so. */}
+      {/* Input/output strip. Scoped to the earthquake feed this page already
+          holds -- the six tiles below each carry their own hazard's numbers,
+          and a combined meter across incomparable units (FRP, wind speed,
+          magnitude) would be a number that means nothing. */}
+      <ActivityMeters
+        className="mb-8"
+        label={region ? `Seismic · ${region.label}` : 'Seismic · Worldwide'}
+        count={quakes.length}
+        peakMag={strongest ? strongest.properties.mag : null}
+        unknown={quakeCountUnknown}
+      />
+
       <section className="mb-10">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-foreground">{t('home.hazardWatch')}</h2>
-          <p className="text-sm text-foreground-muted">{t('home.hazardWatchDesc')}</p>
+          <h2 className="glow-text text-sm text-accent">{t('home.hazardWatch')}</h2>
+          <p className="mt-1 text-xs tracking-wider text-foreground-muted">{t('home.hazardWatchDesc')}</p>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Link href="/earthquake/global" className="block h-full">
@@ -275,47 +289,47 @@ export default function Home() {
           and the full feed lives in the Earthquake section. */}
 
       {/* SAFETY PROTOCOLS */}
-      <section className="mb-12 border-t border-border pt-10">
-        <h2 className="mb-6 text-lg font-semibold text-foreground">{t('home.safetyFor', { country })}</h2>
+      <section className="mb-12 border-t-2 border-accent/25 pt-10">
+        <h2 className="glow-text mb-6 text-sm text-accent">{t('home.safetyFor', { country })}</h2>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Card elevated>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">{t('home.emergencyHotline')}</p>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Panel title={t('home.emergencyHotline')} titleAlign="left">
             {emergencyNum ? (
+              // The number is the one thing on this page someone reads under
+              // duress, so it gets the largest lit display on the face.
               <a
                 href={`tel:${emergencyNum.replace(/[^0-9+]/g, '')}`}
-                className="text-3xl font-bold tracking-tight text-foreground transition-colors hover:text-accent"
+                className="block transition-opacity hover:opacity-80"
+                aria-label={`Call ${emergencyNum}`}
               >
-                {emergencyNum}
+                <Readout value={emergencyNum} ghostFor={emergencyNum} size="xl" align="center" unit="Tel" block />
               </a>
             ) : (
-              <p className="text-sm text-foreground-muted">
+              <p className="text-xs leading-relaxed tracking-wider text-foreground-muted">
                 No verified emergency number for {country}. Look up your local emergency
                 number now, before you need it.
               </p>
             )}
-          </Card>
+          </Panel>
 
-          <Card>
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-foreground-muted">{t('home.protectionDua')}</p>
+          <Panel title={t('home.protectionDua')} titleAlign="left" tone="dim">
             <p className="mb-3 text-right text-lg leading-loose text-foreground" dir="rtl">
               اللَّهُمَّ احْفَظْنَا مِنَ الزَّلَازِلِ وَالْمِحَنِ
             </p>
-            <div className="space-y-1 border-t border-border pt-3">
-              <p className="text-sm italic text-foreground-muted">
+            <div className="space-y-1.5 border-t border-accent/25 pt-3">
+              <p className="text-xs italic tracking-wider text-foreground-muted">
                 &ldquo;Allahumma ahfizna min az-zalazil wal-mihan&rdquo;
               </p>
-              <p className="text-sm text-foreground-subtle">
+              <p className="text-xs tracking-wider text-foreground-subtle">
                 O Allah, protect us from earthquakes and calamities.
               </p>
             </div>
-          </Card>
+          </Panel>
         </div>
 
-        <Card className="mt-4">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">{t('home.preparedness')}</p>
+        <Panel title={t('home.preparedness')} titleAlign="left" tone="dim" className="mt-5">
           <Accordion items={preparednessItems} />
-        </Card>
+        </Panel>
       </section>
 
       {/* Not safety information -- it was sitting under the "Safety information

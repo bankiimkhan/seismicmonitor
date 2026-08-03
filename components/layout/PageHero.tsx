@@ -11,31 +11,28 @@ interface PageHeroProps {
     className?: string;
 }
 
+/** The face's masthead: a lit bezel with the section name in display type. */
 export function PageHero({ title, description, icon, actions, children, className = '' }: PageHeroProps) {
     return (
-        <header className={`relative mb-8 overflow-hidden rounded-2xl border border-border/80 bg-surface/60 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(0,240,255,0.1)] px-5 py-8 md:px-8 md:py-10 ${className}`}>
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-                <div
-                    className="absolute -top-24 left-1/4 h-64 w-64 rounded-full opacity-[var(--hero-glow-opacity)] blur-3xl"
-                    style={{ background: 'var(--glow-cyan)' }}
-                />
-                <div
-                    className="absolute -top-16 right-1/5 h-56 w-56 rounded-full opacity-[var(--hero-glow-opacity)] blur-3xl"
-                    style={{ background: 'var(--glow-purple)' }}
-                />
-            </div>
+        <header className={`bezel relative mb-8 px-5 py-7 shadow-[var(--glow-sm),inset_0_0_40px_rgb(var(--accent-rgb)/0.06)] md:px-7 md:py-8 ${className}`}>
+            <span className="legend absolute -top-[9px] left-5 px-2 text-[10px] font-bold leading-[18px]">
+                Module
+            </span>
 
             <Reveal variant="fade-up" className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
                 <div className="flex items-start gap-4">
                     {icon && (
-                        <span className="hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent shadow-[0_0_15px_rgba(0,240,255,0.2)] md:flex">
+                        <span className="hidden h-11 w-11 flex-shrink-0 items-center justify-center border-2 border-accent/50 text-accent shadow-[var(--glow-xs)] md:flex" style={{ borderRadius: 'var(--radius-md)' }}>
                             {icon}
                         </span>
                     )}
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{title}</h1>
+                    <div className="min-w-0">
+                        {/* Plain glowing amber, not `.vfd`: the dot matrix is
+                            for numerals. Across a heading's thin strokes the
+                            grid eats the letterforms. */}
+                        <h1 className="glow-text text-2xl font-bold text-accent md:text-3xl">{title}</h1>
                         {description && (
-                            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-foreground-muted">{description}</p>
+                            <p className="mt-3 max-w-2xl text-xs leading-relaxed tracking-wider text-foreground-muted">{description}</p>
                         )}
                     </div>
                 </div>

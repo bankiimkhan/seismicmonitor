@@ -3,7 +3,6 @@ import { usePathname } from 'next/navigation';
 import { TopNav } from './TopNav';
 import { PageTransition } from './PageTransition';
 import { AmbientBackground } from '@/components/effects/AmbientBackground';
-import { SpotlightCursor } from '@/components/effects/SpotlightCursor';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -13,8 +12,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <>
+            {/* SpotlightCursor is deliberately not mounted: a soft light blob
+                trailing the pointer washed the middle of the page brown and
+                pulled the amber down with it. The component is still in
+                components/effects if the effect is ever wanted back. */}
             <AmbientBackground />
-            <SpotlightCursor />
 
             <div className="flex min-h-screen flex-col">
                 <TopNav />

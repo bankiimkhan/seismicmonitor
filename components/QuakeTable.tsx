@@ -111,7 +111,7 @@ export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, 
             <div className="max-h-[65vh] overflow-y-auto">
                 <table className="w-full border-collapse text-sm">
                     <thead>
-                        <tr className="sticky top-0 z-10 border-b border-border/90 bg-[#090b0e]/95 backdrop-blur-xl">
+                        <tr className="sticky top-0 z-10 border-b-2 border-accent/50 bg-background/95 backdrop-blur-xl">
                             <th className="group px-4 py-3 text-left"><SortHeader label={t('quake.magnitude')} active={sort.key === 'mag'} dir={sort.dir} onClick={() => toggleSort('mag')} /></th>
                             <th className="group px-2 py-3 text-left"><SortHeader label="Location" active={sort.key === 'place'} dir={sort.dir} onClick={() => toggleSort('place')} /></th>
                             <th className="hidden px-2 py-3 text-left md:table-cell"><span className="text-xs font-mono font-semibold uppercase tracking-wider text-foreground-muted">{t('quake.depth')}</span></th>

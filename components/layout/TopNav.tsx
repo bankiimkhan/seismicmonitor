@@ -8,6 +8,16 @@ import { Modal } from '@/components/ui/Modal';
 import { MenuIcon } from '@/components/ui/icons';
 import { useScrollY } from '@/hooks/useScrollY';
 
+/** IEC power glyph -- the panel's home key. */
+function PowerIcon({ size = 22 }: { size?: number }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 3v9" />
+            <path d="M18.4 6.6a9 9 0 1 1-12.8 0" />
+        </svg>
+    );
+}
+
 export function TopNav() {
     const pathname = usePathname();
     const links = useNavLinks();
@@ -17,57 +27,62 @@ export function TopNav() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
+    const activeLink = links.find((link) =>
+        link.href === '/' ? pathname === '/' : !!pathname?.startsWith(link.href)
+    );
+
     return (
         <>
             <header
-                className={`sticky top-0 z-40 flex h-14 flex-shrink-0 items-center gap-4 px-4 backdrop-blur-2xl transition-all duration-[var(--duration-slow)] md:px-6 ${scrolled ? 'border-b border-border-strong/90 bg-background/90 shadow-[0_4px_28px_rgba(0,0,0,0.9)]' : 'border-b border-border/60 bg-background/80'
-                    }`}
+                className={`sticky top-0 z-40 flex h-16 flex-shrink-0 items-center gap-3 px-3 backdrop-blur-xl transition-all duration-[var(--duration-slow)] md:gap-4 md:px-5 ${scrolled ? 'border-b-2 border-accent/50 bg-background/95' : 'border-b-2 border-accent/25 bg-background/85'}`}
             >
-                <button
-                    type="button"
-                    onClick={() => setDrawerOpen(true)}
-                    aria-label="Open menu"
-                    className="-ml-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-hover hover:text-accent xl:hidden"
+                {/* Power key -- doubles as the home link, the way a hardware
+                    face has exactly one way back to the top. */}
+                <Link
+                    href="/"
+                    aria-label="Overview"
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-accent transition-all hover:text-accent-hover drop-shadow-[0_0_10px_rgb(var(--accent-rgb)/0.7)] hover:drop-shadow-[0_0_16px_rgb(var(--accent-rgb)/0.9)]"
                 >
-                    <MenuIcon size={18} />
-                </button>
-
-                <Link href="/" className="flex flex-shrink-0 items-center gap-2 font-semibold tracking-tight text-foreground group">
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-bold text-accent-foreground shadow-[0_0_12px_rgba(0,240,255,0.4)] transition-shadow group-hover:shadow-[0_0_20px_rgba(0,240,255,0.8)]">S</span>
-                    <span className="hidden font-mono text-sm font-bold uppercase tracking-widest text-foreground sm:inline">Seismic</span>
+                    <PowerIcon />
                 </Link>
+
+                {/* Current module, shown as the panel's main legend display. */}
+                <div className="bezel flex h-10 min-w-0 flex-1 items-center justify-center px-3 md:flex-none md:w-auto md:min-w-[280px]">
+                    <span className="vfd truncate text-sm font-bold uppercase md:text-base">
+                        {activeLink ? `${activeLink.label}` : 'Seismic Monitor'}
+                    </span>
+                </div>
 
                 {/* xl, not lg: eight hazard links in a mono face need ~1150px
                     and were overflowing the bar between 1024 and 1280. */}
-                <nav className="hidden items-center gap-1 xl:flex">
+                <nav className="ml-auto hidden items-center gap-1 xl:flex">
                     {links.map((link) => {
                         const Icon = NAV_ICONS[link.key];
-                        const active = link.href === '/' ? pathname === '/' : !!pathname?.startsWith(link.href);
+                        const active = link.key === activeLink?.key;
                         return (
                             <Link
                                 key={link.key}
                                 href={link.href}
-                                className={`relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-mono font-medium transition-all duration-200 ${active ? 'text-accent font-semibold drop-shadow-[0_0_10px_rgba(0,240,255,0.6)]' : 'text-foreground-muted hover:text-accent hover:bg-surface-hover/60'}`}
+                                aria-current={active ? 'page' : undefined}
+                                className={`pad flex items-center gap-1.5 px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition-all ${active ? 'bg-accent text-accent-foreground shadow-[var(--glow-sm)]' : 'bg-transparent text-foreground-muted hover:text-accent'}`}
                             >
-                                <Icon size={15} strokeWidth={active ? 2 : 1.75} />
+                                <Icon size={14} strokeWidth={active ? 2.25 : 1.75} />
                                 {link.label}
-                                {active && (
-                                    <span
-                                        className="absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full bg-accent shadow-[0_0_12px_2px_var(--accent)]"
-                                        aria-hidden="true"
-                                    />
-                                )}
                             </Link>
                         );
                     })}
                 </nav>
 
-                {/* No standing "LIVE" pill here. It was a second copy of the
-                    indicator the live feed already carries on Overview, and it
-                    kept claiming live data on pages that have none -- /about,
-                    and every section's Trends tab, which is an archive. */}
-                <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+                <div className="ml-auto flex flex-shrink-0 items-center gap-2 xl:ml-0">
                     <ThemeToggle />
+                    <button
+                        type="button"
+                        onClick={() => setDrawerOpen(true)}
+                        aria-label="Open menu"
+                        className="pad flex h-9 w-9 flex-shrink-0 items-center justify-center xl:hidden"
+                    >
+                        <MenuIcon size={18} />
+                    </button>
                 </div>
             </header>
 

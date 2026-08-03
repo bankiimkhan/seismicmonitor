@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
         description: 'Real-time worldwide earthquake monitoring',
         start_url: '/',
         display: 'standalone',
-        background_color: '#0a0b0d',
-        theme_color: '#4f6df5',
+        background_color: '#1c0705',
+        theme_color: '#ffa81a',
         icons: [
             { src: '/icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
             { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
