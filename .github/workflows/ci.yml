@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
 
+# Never let two deploys of the same branch overlap: `wrangler deploy` overwrites
+# the Worker's remote config with wrangler.jsonc, and two of those interleaving
+# is how you get a half-applied configuration. Queue instead of cancelling --
+# cancelling mid-deploy is the one thing worse than waiting.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -33,4 +41,104 @@ jobs:
       # Builds through the adapter rather than plain `next build`: this is the
       # artifact that actually ships, so it catches OpenNext/workerd
       # incompatibilities a bare Next build would miss.
+      #
+      # This build is a CHECK ONLY and is deliberately not reused by the deploy
+      # job below. It runs with the placeholder NEXT_PUBLIC_* values above, and
+      # those get inlined into the client bundle at build time -- shipping this
+      # artifact would put `https://example.supabase.co` in front of every user.
+      # The deploy job rebuilds with the real values.
       - run: npx opennextjs-cloudflare build
+
+  # Deploys the three halves of this project that `git push` does not touch.
+  # Only on a direct push to main, and only once `test` is green -- a PR build
+  # never reaches this job.
+  #
+  # Migrations are deliberately NOT run here. `supabase db push` applies DDL to
+  # production, this repo's history already contains a `drop table`, and a bad
+  # migration is not something a rollback fixes. Run it by hand, before merging
+  # the code that depends on it:
+  #   npx supabase db push
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Optional but recommended: create a `production` environment in repo
+    # Settings -> Environments and add a required reviewer to turn every deploy
+    # into a one-click approval instead of an automatic one.
+    environment: production
+    env:
+      SUPABASE_PROJECT_REF: txapjxpufvzqeceoorey
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # --- Ingest jobs (Supabase Edge Functions) -------------------------------
+      # Deployed unconditionally rather than only when supabase/functions changed.
+      # A redeploy of identical code is a free no-op version, and this repo has
+      # already been bitten once by the deployed functions silently drifting
+      # ~2 days behind the committed source. Always-deploy makes drift impossible.
+      #
+      # `test` runs `sync-edge-shared.mjs --check` above, so reaching this step
+      # guarantees supabase/functions/_shared matches lib/.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy ingest --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy ingest-cyclone-history --project-ref "$SUPABASE_PROJECT_REF"
+
+      # --- Web app (Cloudflare Worker) ----------------------------------------
+      # A fresh build with the REAL NEXT_PUBLIC_* values. These are repository
+      # *variables*, not secrets, because they are public by definition: Next
+      # inlines them into the browser bundle, so anyone can read them in devtools.
+      # Storing them as secrets would only make the logs harder to read.
+      #
+      # SUPABASE_SERVICE_ROLE_KEY is absent on purpose -- it is read at runtime,
+      # not build time, and lives as a Worker secret (`wrangler secret put`).
+      # It must never enter a build environment.
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_CF_BEACON_TOKEN: ${{ vars.NEXT_PUBLIC_CF_BEACON_TOKEN }}
+        run: |
+          test -n "$NEXT_PUBLIC_SUPABASE_URL"      || { echo "::error::NEXT_PUBLIC_SUPABASE_URL variable is not set -- the client bundle would ship without a Supabase URL"; exit 1; }
+          test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" || { echo "::error::NEXT_PUBLIC_SUPABASE_ANON_KEY variable is not set"; exit 1; }
+          test -n "$NEXT_PUBLIC_APP_URL"           || { echo "::error::NEXT_PUBLIC_APP_URL variable is not set -- share links and the /about embed snippet would fall back to the hardcoded default"; exit 1; }
+          npm run deploy
+
+      # Fails the run if the deploy did not actually take effect, so a green
+      # tick always means "live", never "uploaded". Checks the one route that
+      # exercises the whole chain: Worker -> service-role secret -> Postgres.
+      - name: Verify deployment is live
+        run: |
+          # Strip any trailing slash: a variable set to ".../" would build
+          # "//api/health", which Next answers with a 308 rather than a 200 and
+          # would fail this check for a reason that has nothing to do with the
+          # deploy.
+          base="${{ vars.NEXT_PUBLIC_APP_URL }}"
+          url="${base%/}/api/health"
+          for attempt in 1 2 3 4 5; do
+            # curl prints 000 for a connection-level failure; `|| true` keeps the
+            # non-zero exit from killing the step before we can retry.
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 30 "$url" || true)
+            if [ "$code" = "200" ]; then
+              echo "OK: $url -> 200"
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "attempt $attempt: $url -> ${code:-000} (retrying, propagation can lag)"
+            sleep 10
+          done
+          echo "::error::$url did not return 200 after the deploy"
+          exit 1
