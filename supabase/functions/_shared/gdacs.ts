@@ -39,9 +39,23 @@ interface GdacsFeature {
  * lib/noaaCyclones.ts draw. Returning `[]` for both (as this used to) meant the
  * ingest job's `try/catch` never saw a failure, so GDACS was recorded as
  * 'online' on /about no matter how long it had been down. */
+// GDACS is far slower than the other adapters and needs its own budget. Measured
+// against the live same-day query this makes, five consecutive calls took 7.6s,
+// 10.6s, 17.6s, 19.3s and 23.7s -- every one of them over the 6s the other
+// adapters use, so the AbortController fired before the response ever landed and
+// the catch below reported the source unreadable. That is the second half of why
+// GDACS contributed nothing: even once the 204 handling below was fixed, the
+// request was still being aborted first.
+//
+// 30s is comfortably above the observed worst case and still cheap: this adapter
+// runs only in the ingest job (nothing in app/ imports it), whose whole run takes
+// ~11s against pg_net's 150s ceiling, so a slow GDACS delays a background job
+// rather than any user request.
+const GDACS_TIMEOUT_MS = 30_000;
+
 export async function fetchGdacsFeatures(hours: number, limit: number): Promise<EarthquakeFeature[] | null> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), GDACS_TIMEOUT_MS);
 
     try {
         const now = new Date();
