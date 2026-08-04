@@ -1,14 +1,16 @@
 import { Panel, Led } from '@/components/ui/Panel';
 import { LedMeter } from '@/components/ui/Readout';
 
+// Ticks are silkscreened under the segments the way a dB scale is on a real
+// meter -- one slot per segment, every other one blank so the labels stay
+// legible. LedMeter derives the printed values from the ceiling and segment
+// count itself; they are deliberately not spelled out here, because a
+// hand-written scale is free to disagree with the bar it sits under (this one
+// did, by 3x at midscale).
 const MAG_SEGMENTS = 12;
 const MAG_CEILING = 9;
-// Ticks are printed under the segments the way a dB scale is silkscreened on a
-// meter: one slot per segment, most of them blank so the labels stay legible.
-const MAG_SCALE = ['', '1', '', '3', '', '4', '', '5', '', '6', '', '8'];
 
 const COUNT_SEGMENTS = 12;
-const COUNT_SCALE = ['', '10', '', '25', '', '50', '', '100', '', '200', '', '300'];
 
 interface ActivityMetersProps {
     /** Events in the current window. */
@@ -51,7 +53,6 @@ export function ActivityMeters({
                         value={unknown ? 0 : count}
                         max={countCeiling}
                         segments={COUNT_SEGMENTS}
-                        scale={COUNT_SCALE}
                     />
                     <p className="mt-1.5 pl-12 text-[9px] uppercase tracking-[0.18em] text-foreground-subtle">
                         {unknown ? 'Source unreadable' : `${count} events tracked`}
@@ -64,7 +65,6 @@ export function ActivityMeters({
                         value={unknown || peakMag === null ? 0 : peakMag}
                         max={MAG_CEILING}
                         segments={MAG_SEGMENTS}
-                        scale={MAG_SCALE}
                     />
                     <p className="mt-1.5 pl-12 text-[9px] uppercase tracking-[0.18em] text-foreground-subtle">
                         {unknown

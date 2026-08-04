@@ -100,7 +100,16 @@ async function fetchUsgsFeatures(opts: {
     return Array.isArray(data?.features) ? data.features : [];
 }
 
-async function fetchNcsFeatures(limit: number): Promise<EarthquakeFeature[]> {
+// Safety valve on parsing an upstream we don't control the size of. NCS's page
+// has carried ~150 entries in practice; this only exists so a format change
+// that turns every element into a match can't spin here.
+const NCS_MAX_PARSE = 1000;
+
+/** Scrapes NCS's page in full. Deliberately takes no query parameters: the
+ * upstream is one static HTML page with no bbox/time/limit support at all, so
+ * narrowing is the caller's job (see filterToQuery) and doing it here by
+ * truncation would drop matching events that sit further down the page. */
+async function fetchNcsFeatures(): Promise<EarthquakeFeature[]> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -116,7 +125,7 @@ async function fetchNcsFeatures(limit: number): Promise<EarthquakeFeature[]> {
         const features: EarthquakeFeature[] = [];
         let match;
 
-        while ((match = dataJsonRe.exec(html)) !== null && features.length < limit) {
+        while ((match = dataJsonRe.exec(html)) !== null && features.length < NCS_MAX_PARSE) {
             try {
                 const decoded = match[1]
                     .replace(/&quot;/g, '"')
@@ -171,6 +180,51 @@ async function fetchNcsFeatures(limit: number): Promise<EarthquakeFeature[]> {
     }
 }
 
+// Longitude is compared modulo 360 rather than directly: buildBBoxFromCenter
+// deliberately leaves it unclamped so an antimeridian-spanning box stays
+// contiguous (a box centred on Fiji runs 165 -> 195), and a raw `lng <= maxLng`
+// would then reject every point west of the dateline inside it.
+function lngWithin(lng: number, minLng: number, maxLng: number): boolean {
+    if (maxLng - minLng >= 360) return true;
+    let normalized = lng;
+    while (normalized < minLng) normalized += 360;
+    return normalized <= maxLng;
+}
+
+/**
+ * Applies the caller's bbox and time window to features from a source that
+ * cannot be asked for them upstream (NCS -- see fetchNcsFeatures).
+ *
+ * Without this, `source=ncs` answered every query with "whatever that page
+ * lists right now": a request for the last 24 hours inside the South Asia box
+ * came back as 150 events spanning ~17 days, which Home then presented as a
+ * live regional count. The bbox and window are not decoration on those
+ * requests; they are what the number is claimed to mean.
+ *
+ * `endMs` is only enforced when the caller asked for a window that ends in the
+ * past. In the ordinary live case the anchor is rounded down to the cache
+ * window (see fetchEarthquakeFeatures), so an upper bound would discard events
+ * published in the last few seconds -- exactly the ones that matter most here.
+ */
+function filterToQuery(
+    features: EarthquakeFeature[],
+    bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+    startMs: number,
+    endMs?: number,
+): EarthquakeFeature[] {
+    return features.filter((f) => {
+        const time = f.properties?.time;
+        if (!Number.isFinite(time)) return false;
+        if (time < startMs) return false;
+        if (endMs !== undefined && time > endMs) return false;
+
+        const [lng, lat] = f.geometry?.coordinates ?? [];
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+        if (lat < bbox.minLat || lat > bbox.maxLat) return false;
+        return lngWithin(lng, bbox.minLng, bbox.maxLng);
+    });
+}
+
 export function dedupeAndSort(features: EarthquakeFeature[], limit: number): EarthquakeFeature[] {
     const seen = new Set<string>();
     const deduped = features.filter((f) => {
@@ -193,7 +247,8 @@ export async function fetchEarthquakeFeatures(params: EarthquakeQueryParams): Pr
     // explicit endTime needs no rounding -- it's already a fixed instant.
     const windowMs = CACHE_WINDOW_SECONDS * 1000;
     const anchorMs = params.endTime ?? Math.floor(Date.now() / windowMs) * windowMs;
-    const startTimeIso = new Date(anchorMs - hours * 60 * 60 * 1000).toISOString();
+    const startMs = anchorMs - hours * 60 * 60 * 1000;
+    const startTimeIso = new Date(startMs).toISOString();
     // Only sent upstream when the caller asked for a window that ends in the
     // past; omitted for the ordinary "last N hours" case so a live feed is
     // never accidentally frozen at a stale upper bound.
@@ -214,10 +269,16 @@ export async function fetchEarthquakeFeatures(params: EarthquakeQueryParams): Pr
     const applyMinMag = (features: EarthquakeFeature[]) =>
         minMag !== undefined ? features.filter((f) => (f.properties?.mag ?? 0) >= minMag) : features;
 
+    // USGS gets the bbox and window as query params; NCS's scrape cannot be
+    // asked for either, so its rows are narrowed here to the same query before
+    // any caller sees them. Both sources then answer the same question.
+    const narrowScraped = (features: EarthquakeFeature[]) =>
+        filterToQuery(features, { minLat, maxLat, minLng, maxLng }, startMs, params.endTime);
+
     if (source === 'ncs') {
         try {
-            const features = applyMinMag(await fetchNcsFeatures(limit));
-            return { features, sourceStatus: 'online' };
+            const features = applyMinMag(narrowScraped(await fetchNcsFeatures()));
+            return { features: dedupeAndSort(features, limit), sourceStatus: 'online' };
         } catch (err) {
             log.warn('NCS source down, falling back to USGS', { error: String(err) });
             const usgsFeatures = applyMinMag(await fetchUsgsFeatures({
@@ -231,7 +292,7 @@ export async function fetchEarthquakeFeatures(params: EarthquakeQueryParams): Pr
         const usgsPromise = fetchUsgsFeatures({
             base: USGS_FDSN_QUERY_URL, minLat, maxLat, minLng, maxLng, startTimeIso, endTimeIso, limit, minMag
         }).catch(() => []);
-        const ncsPromise = fetchNcsFeatures(limit).catch(() => []);
+        const ncsPromise = fetchNcsFeatures().then(narrowScraped).catch(() => []);
 
         const [usgsFeatures, ncsFeatures] = await Promise.all([usgsPromise, ncsPromise]);
         const tag = (feats: EarthquakeFeature[], src: 'usgs' | 'ncs') =>

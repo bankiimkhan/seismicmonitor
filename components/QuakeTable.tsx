@@ -26,6 +26,12 @@ interface QuakeTableProps {
     error?: string | null;
     onRetry?: () => void;
     userLoc?: { lat: number; lng: number } | null;
+    /** Overrides the generic "try widening the search" empty state for callers
+     * that know why the list is empty -- Local's felt-distance filter can empty
+     * it while events genuinely did occur nearby, and the default copy would
+     * send you to widen filters that were never the reason. */
+    emptyTitle?: string;
+    emptyDescription?: string;
     className?: string;
 }
 
@@ -47,7 +53,7 @@ function SortHeader({ label, active, dir, onClick, align = 'left' }: { label: st
 }
 
 /** Desktop, sortable, sticky-header presentation for a quake list. Mobile falls back to QuakeList's cards. */
-export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, onRetry, userLoc, className = '' }) => {
+export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, onRetry, userLoc, emptyTitle, emptyDescription, className = '' }) => {
     const { t } = useT();
     const router = useRouter();
     const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'time', dir: 'desc' });
@@ -91,7 +97,9 @@ export const QuakeTable: React.FC<QuakeTableProps> = ({ quakes, loading, error, 
     }
 
     if (error && quakes.length === 0) return <ErrorState message={error} onRetry={onRetry} />;
-    if (quakes.length === 0) return <EmptyState title={t('quake.noneFound')} description={t('quake.noneFoundDesc')} />;
+    if (quakes.length === 0) {
+        return <EmptyState title={emptyTitle ?? t('quake.noneFound')} description={emptyDescription ?? t('quake.noneFoundDesc')} />;
+    }
 
     const hasDistance = !!userLoc;
 

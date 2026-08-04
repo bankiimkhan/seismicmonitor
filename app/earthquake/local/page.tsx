@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Input, Label } from '@/components/ui/Input';
 import { QuakeList } from '@/components/QuakeList';
@@ -12,7 +13,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useLocalStorageState } from '@/hooks/useLocalStorageState';
 import { useT } from '@/lib/i18n/LocaleProvider';
 import { track } from '@/lib/analytics';
-import { distanceKm, maxFeltDistanceKm } from '@/lib/geo';
+import { distanceKm, formatDistanceKm, maxFeltDistanceKm } from '@/lib/geo';
 
 // Widest tier in the felt-distance table is ~2000km (M8.9+); fetch a bbox
 // generous enough to cover it (1 degree of latitude is ~111km) so the
@@ -31,6 +32,10 @@ export default function LocalPage() {
   const [minMag, setMinMag] = useLocalStorageState('local_filter_minMag', 3.0);
   const [timeRange, setTimeRange] = useLocalStorageState('local_filter_timeRange', '30');
   const [specificDate, setSpecificDate] = useLocalStorageState('local_filter_date', '');
+  // Escape hatch from the felt-distance criterion below. Persisted like the
+  // rest of the filters: someone who has decided they want the regional view
+  // should not have to re-decide it on every visit.
+  const [showDistant, setShowDistant] = useLocalStorageState('local_filter_showDistant', false);
 
   // An exact date is a 24h window anchored at the end of that UTC day, via
   // /api/earthquakes' `endTime`. The old expression here subtracted that
@@ -55,10 +60,8 @@ export default function LocalPage() {
     minMag: String(minMag),
   });
 
-  // Client-side text search, plus the "did you feel it" distance criteria:
-  // a quake only counts as local if its magnitude could plausibly be felt
-  // at the user's distance from it (see lib/geo.ts maxFeltDistanceKm).
-  const filteredQuakes = quakes.filter(q => {
+  // PASS 1 -- the filters the user actually set, in the toolbar above.
+  const inRegion = useMemo(() => quakes.filter(q => {
     const placeName = q.properties.place || "Unknown location";
     if (!placeName.toLowerCase().includes(search.toLowerCase())) return false;
 
@@ -70,23 +73,55 @@ export default function LocalPage() {
       if (t < dayStartMs || t >= dayStartMs + DAY_MS) return false;
     }
 
-    // Only events with a real magnitude can be measured against the felt-distance
-    // table. An unmeasured one (USGS reports `mag: null`, typically on an event
-    // too fresh to have been reviewed yet) used to reach maxFeltDistanceKm as a
-    // `null` that coerced to magnitude 0 -- yielding a 5km cutoff, so the newest
-    // nearby events were the ones silently dropped from a page whose whole job is
-    // to surface them. Keep them: the server-side bbox already scopes the query
-    // to the region, and "we don't know yet" is not grounds for hiding an event.
-    if (location && q.properties.mag !== null) {
-      const [lng, lat] = q.geometry?.coordinates ?? [];
-      if (lat !== undefined && lng !== undefined) {
-        const distance = distanceKm(location, { lat, lng });
-        if (distance > maxFeltDistanceKm(q.properties.mag)) return false;
-      }
-    }
-
     return true;
-  });
+  }), [quakes, search, hasSpecificDay, dayStartMs]);
+
+  // PASS 2 -- the "did you feel it" criterion: a quake only counts as local if
+  // its magnitude could plausibly be felt at the user's distance from it (see
+  // lib/geo.ts maxFeltDistanceKm).
+  //
+  // Kept separate from pass 1 because this filter is *implicit* -- no control
+  // in the toolbar turns it on, and it is aggressive: the default M3.0 floor
+  // has a felt radius of ~20km, so for most locations it removes every event
+  // and the page reports "no seismic activity found" over a region that had
+  // plenty. Scoring rather than dropping lets the page say which filter did it.
+  //
+  // Only events with a real magnitude can be measured against the table. An
+  // unmeasured one (USGS reports `mag: null`, typically on an event too fresh
+  // to have been reviewed yet) used to reach maxFeltDistanceKm as a `null` that
+  // coerced to magnitude 0 -- yielding a 5km cutoff, so the newest nearby
+  // events were the ones silently dropped from a page whose whole job is to
+  // surface them. Those count as felt: the server-side bbox already scopes the
+  // query to the region, and "we don't know yet" is not grounds for hiding an
+  // event.
+  const scored = useMemo(() => inRegion.map(q => {
+    const [lng, lat] = q.geometry?.coordinates ?? [];
+    if (!location || q.properties.mag === null || lat === undefined || lng === undefined) {
+      return { quake: q, distance: null, felt: true };
+    }
+    const distance = distanceKm(location, { lat, lng });
+    return { quake: q, distance, felt: distance <= maxFeltDistanceKm(q.properties.mag) };
+  }), [inRegion, location]);
+
+  const feltQuakes = useMemo(() => scored.filter(s => s.felt).map(s => s.quake), [scored]);
+
+  // The closest event the felt-distance rule removed, so the notice can point
+  // at something concrete rather than just asserting a count.
+  const nearestUnfelt = useMemo(() => {
+    const unfelt = scored.filter(s => !s.felt && s.distance !== null);
+    if (unfelt.length === 0) return null;
+    return unfelt.reduce((min, s) => (s.distance! < min.distance! ? s : min));
+  }, [scored]);
+
+  const hiddenCount = inRegion.length - feltQuakes.length;
+  const filteredQuakes = showDistant ? inRegion : feltQuakes;
+
+  const nearestSuffix = nearestUnfelt && nearestUnfelt.quake.properties.mag !== null
+    ? t('local.feltNearest', {
+      mag: nearestUnfelt.quake.properties.mag.toFixed(1),
+      distance: formatDistanceKm(nearestUnfelt.distance!),
+    })
+    : '';
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-8 md:px-8 md:pb-10">
@@ -151,6 +186,36 @@ export default function LocalPage() {
 
       {/* RESULTS */}
       <div className="space-y-4">
+        {/* The felt-distance rule is the one filter with no control of its own,
+            so it gets stated here whenever it is actually doing something --
+            otherwise an empty list reads as "nothing happened near you" when
+            what it means is "nothing near you was big enough to feel". */}
+        {location && hiddenCount > 0 && (
+          <div className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-foreground-muted">
+            <p>
+              {showDistant ? t('local.feltAllShown') : t('local.feltOnly')}
+              {!showDistant && (
+                <>
+                  {' '}
+                  {t('local.feltHidden', {
+                    count: hiddenCount,
+                    plural: hiddenCount === 1 ? '' : 's',
+                    verb: hiddenCount === 1 ? 'was' : 'were',
+                    nearest: nearestSuffix,
+                  })}
+                </>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setShowDistant(!showDistant); track('filter_changed', { page: 'local', field: 'showDistant', value: !showDistant }); }}
+              className="mt-2 text-sm font-medium text-accent underline underline-offset-2 transition-opacity hover:opacity-80"
+            >
+              {showDistant ? t('local.feltShowFeltOnly') : t('local.feltShowAll')}
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <p className="text-sm text-foreground-muted">
             {t('filters.eventsFound', { count: filteredQuakes.length, plural: filteredQuakes.length === 1 ? '' : 's' })}
@@ -159,10 +224,26 @@ export default function LocalPage() {
         </div>
 
         <div className="hidden md:block">
-          <QuakeTable quakes={filteredQuakes} loading={loading} error={error} onRetry={refetch} userLoc={location} />
+          <QuakeTable
+            quakes={filteredQuakes}
+            loading={loading}
+            error={error}
+            onRetry={refetch}
+            userLoc={location}
+            emptyTitle={hiddenCount > 0 ? t('local.feltEmptyTitle') : undefined}
+            emptyDescription={hiddenCount > 0 ? t('local.feltEmptyDesc') : undefined}
+          />
         </div>
         <div className="md:hidden">
-          <QuakeList quakes={filteredQuakes} loading={loading} error={error} onRetry={refetch} userLoc={location} />
+          <QuakeList
+            quakes={filteredQuakes}
+            loading={loading}
+            error={error}
+            onRetry={refetch}
+            userLoc={location}
+            emptyTitle={hiddenCount > 0 ? t('local.feltEmptyTitle') : undefined}
+            emptyDescription={hiddenCount > 0 ? t('local.feltEmptyDesc') : undefined}
+          />
         </div>
       </div>
 

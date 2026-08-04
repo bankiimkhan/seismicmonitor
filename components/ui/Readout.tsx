@@ -100,27 +100,48 @@ export function Readout({
     );
 }
 
+const defaultFormatTick = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+
 /**
  * Segmented bar meter -- the INPUT/OUTPUT strip of the panel. `value` and
  * `max` are mapped to a whole number of lit segments, so it quantizes the way
  * real hardware does rather than sliding continuously.
+ *
+ * Tick labels are DERIVED from `max`/`segments`, never passed in. They used to
+ * be a hand-written array, which silently drifted from what the segments
+ * actually mean: the count meter carried a logarithmic silkscreen
+ * (10/25/50/100/200/300) over this linear bar, so 150 events out of a 300
+ * ceiling lit six segments and came to rest under the tick reading "50". A
+ * label that disagrees with the bar it is printed under is worse than no
+ * label, so the two now come from the same arithmetic.
+ *
+ * Each tick names the value at the TOP of the segment above it, so the last
+ * lit segment's label is the reading -- full scale sits under the final one.
  */
 export function LedMeter({
-    value, max, segments = 12, label, scale, tone = 'accent', className = '',
+    value, max, segments = 12, label, scaleEvery = 2, formatTick = defaultFormatTick, tone = 'accent', className = '',
 }: {
     value: number;
     max: number;
     segments?: number;
     label?: React.ReactNode;
-    /** Tick labels printed under the segments (e.g. a dB scale). Length should match `segments`. */
-    scale?: (string | number)[];
+    /** Print a tick under every Nth segment; `false` for an unlabelled bar. */
+    scaleEvery?: number | false;
+    /** Renders a derived tick value. Defaults to integers, one decimal otherwise. */
+    formatTick?: (value: number) => string;
     /** Applied to the segments past the two-thirds mark, so a meter can run amber then red. */
     tone?: Tone;
     className?: string;
 }) {
     const safeMax = max > 0 ? max : 1;
     const ratio = Math.min(Math.max(value / safeMax, 0), 1);
-    const lit = Math.round(ratio * segments);
+    // A real but small reading always lights at least one segment. Rounding
+    // alone put anything under half a segment's worth at zero -- and on this
+    // face a dark meter is the no-signal state (see ActivityMeters' `unknown`),
+    // so "9 events in the last 24h" would have rendered as "the feed is down".
+    // Only a genuine zero is allowed to go dark.
+    const scaled = Math.round(ratio * segments);
+    const lit = value > 0 ? Math.max(1, scaled) : scaled;
     const hotFrom = Math.ceil(segments * 0.72);
 
     return (
@@ -156,13 +177,13 @@ export function LedMeter({
                     })}
                 </div>
             </div>
-            {scale && (
+            {scaleEvery && (
                 <div className="mt-1 flex items-center gap-2">
                     {label && <span className="w-10 flex-shrink-0" />}
                     <div className="flex flex-1 items-center gap-1">
-                        {scale.map((tick, i) => (
+                        {Array.from({ length: segments }, (_, i) => (
                             <span key={i} className="flex-1 text-center text-[8px] tracking-wider text-foreground-subtle">
-                                {tick}
+                                {(i + 1) % scaleEvery === 0 ? formatTick(((i + 1) / segments) * safeMax) : ''}
                             </span>
                         ))}
                     </div>
