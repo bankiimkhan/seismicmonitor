@@ -3,6 +3,40 @@ import {
     ActivityIcon, CycloneIcon, LandslideIcon, VolcanoIcon, FlameIcon, WavesIcon,
 } from '@/components/ui/icons';
 
+/** Ways a set of events can be ranked on Trends. Which of these are offered is
+ * decided per hazard type by `rankings` below -- an average or maximum
+ * severity is meaningless for a hazard whose events carry no severity number,
+ * and offering it anyway produces a leaderboard of nulls. */
+export type RankingMethod = 'count' | 'frequency' | 'avgSeverity' | 'maxSeverity';
+
+export const RANKING_LABELS: Record<RankingMethod, string> = {
+    count: 'Total events',
+    frequency: 'Events per day',
+    avgSeverity: 'Average severity',
+    maxSeverity: 'Peak severity',
+};
+
+/** Describes the one numeric measure a hazard type reports, if it reports one.
+ *
+ * `hasValue: false` types (volcano, landslide, tsunami) store `magnitude: null`
+ * on every row. They are not "zero severity" -- the sources publish no severity
+ * number at all -- so anything that averages, maxes, colour-codes or sorts by
+ * severity has to be withheld for them rather than shown as 0. */
+export interface SeverityMetric {
+    /** Column header / axis label, e.g. "Magnitude", "Max wind". */
+    label: string;
+    /** Short unit rendered beside the number, e.g. "M", "kts", "MW". */
+    unit: string;
+    /** Decimal places when formatting the raw value. */
+    precision: number;
+    /** Renders a value with its unit, in the form this hazard's readers expect. */
+    format: (value: number) => string;
+    /** Ascending thresholds at which a value becomes notable / severe. Used for
+     * the same low/medium/high banding across every surface, so a number is
+     * never coloured one way on a card and another way in a table. */
+    bands: { warning: number; critical: number };
+}
+
 export interface HazardConfig {
     slug: string;
     /** Value for the `hazard_events.hazard_type` column / `/api/hazards` & `/api/trends` `type` param -- comma-joined where two source granularities of the same phenomenon are folded together (cyclone + severe_weather, see Milestone 12's Home page precedent). */
@@ -15,6 +49,13 @@ export interface HazardConfig {
     /** Short unit suffix for StatCard/HazardWatchCard footers, e.g. "FRP"/"kts". Omitted when hasValue is false. */
     unit?: string;
     hasValue: boolean;
+    /** Present exactly when `hasValue` is true. Everything that formats, bands,
+     * filters or ranks by severity reads it from here, so a hazard type without
+     * one simply cannot be given earthquake-shaped treatment by accident. */
+    severity?: SeverityMetric;
+    /** Ranking methods Trends may offer for this hazard type. Severity-based
+     * entries are omitted for types with no severity metric. */
+    rankings: RankingMethod[];
     /** Time-range <select> presets shown on Local/Global, in days. */
     rangeOptionsDays: number[];
     defaultRangeDays: number;
@@ -47,6 +88,16 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         valueLabel: 'Magnitude',
         unit: 'M',
         hasValue: true,
+        severity: {
+            label: 'Magnitude',
+            unit: 'M',
+            precision: 1,
+            format: (v) => `M${v.toFixed(1)}`,
+            // Richter banding, matching components/ui/Badge.tsx's getSeverity so
+            // a quake is not "warning" on one surface and "stable" on another.
+            bands: { warning: 5, critical: 6 },
+        },
+        rankings: ['count', 'frequency', 'avgSeverity', 'maxSeverity'],
         rangeOptionsDays: [7, 30, 90, 365],
         defaultRangeDays: 30,
         watchHours: 24,
@@ -64,6 +115,10 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         icon: WavesIcon,
         valueLabel: '—',
         hasValue: false,
+        // NOAA/NWS publishes a category (warning/watch/advisory), carried on
+        // alert_level, but no numeric severity. Ranking is therefore by how
+        // often alerts occur, never by "average tsunami".
+        rankings: ['count', 'frequency'],
         rangeOptionsDays: [1, 3, 7, 30],
         defaultRangeDays: 7,
         watchHours: 168,
@@ -87,6 +142,17 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         valueLabel: 'Max Wind (kts)',
         unit: 'kts',
         hasValue: true,
+        severity: {
+            label: 'Max wind',
+            unit: 'kts',
+            precision: 0,
+            format: (v) => `${Math.round(v)} kts`,
+            // Saffir-Simpson in knots: 64 kt is hurricane force (cat 1), 96 kt
+            // is cat 3 / "major". Not a magnitude scale, and deliberately not
+            // sharing earthquake's thresholds.
+            bands: { warning: 64, critical: 96 },
+        },
+        rankings: ['count', 'frequency', 'avgSeverity', 'maxSeverity'],
         rangeOptionsDays: [3, 7, 30],
         defaultRangeDays: 7,
         watchHours: 168,
@@ -104,6 +170,7 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         icon: LandslideIcon,
         valueLabel: '—',
         hasValue: false,
+        rankings: ['count', 'frequency'],
         rangeOptionsDays: [7, 30, 90],
         defaultRangeDays: 30,
         watchHours: 720,
@@ -128,6 +195,10 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         icon: VolcanoIcon,
         valueLabel: '—',
         hasValue: false,
+        // EONET/Smithsonian report that a volcano is active, not how strongly.
+        // VEI exists as a concept but is not in either feed, so there is no
+        // severity number to rank on.
+        rankings: ['count', 'frequency'],
         rangeOptionsDays: [30, 90, 365],
         defaultRangeDays: 90,
         watchHours: 2160,
@@ -146,6 +217,16 @@ export const HAZARD_CONFIG: Record<HazardSlug, HazardConfig> = {
         valueLabel: 'FRP (MW)',
         unit: 'FRP',
         hasValue: true,
+        severity: {
+            label: 'Fire radiative power',
+            unit: 'MW',
+            precision: 0,
+            format: (v) => `${Math.round(v)} MW`,
+            // FRP has no standard banding; these follow FIRMS' own rough
+            // "notable / intense" split for VIIRS pixels.
+            bands: { warning: 50, critical: 200 },
+        },
+        rankings: ['count', 'frequency', 'avgSeverity', 'maxSeverity'],
         rangeOptionsDays: [1, 3, 7],
         defaultRangeDays: 1,
         watchHours: 24,

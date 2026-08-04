@@ -55,7 +55,18 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
+      {/* Same reason <html> carries it, different mutator: browser extensions
+          stamp their own attributes onto <body> before React hydrates, and
+          React counts those as a server/client mismatch it "won't patch up".
+          Bitdefender is the noisy one (`bis_register`, `__processed_<uuid>__`),
+          but password managers and ad blockers all do it. Nothing in the app
+          can prevent it -- the markup is edited between the server's response
+          and hydration.
+
+          This is deliberately narrow: suppressHydrationWarning applies one
+          level deep, to this element's own attributes and text, so a genuine
+          mismatch anywhere inside the tree still reports normally. */}
+      <body suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}>
         <LocaleProvider>
           <ToastProvider>
             <a

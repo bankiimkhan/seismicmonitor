@@ -3,19 +3,25 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
+// Ordered by widening scope: where you are, the region containing it, then the
+// whole world. Regional sits between Local and Global because that is the step
+// it represents -- Local is a box around a point, Regional is one of the
+// predefined regions in lib/regions.ts, Global is everything including events
+// that fall outside every region.
 const TABS = [
     { key: 'local', labelKey: 'nav.local' },
+    { key: 'regional', labelKey: 'nav.regional' },
     { key: 'global', labelKey: 'nav.global' },
     { key: 'map', labelKey: 'nav.map' },
     { key: 'trends', labelKey: 'nav.trends' },
 ] as const;
 
 interface HazardSubNavProps {
-    /** e.g. "/wildfire" -- tabs link to `${basePath}/local`, `/global`, `/map`, `/trends`. */
+    /** e.g. "/wildfire" -- tabs link to `${basePath}/local`, `/regional`, `/global`, `/map`, `/trends`. */
     basePath: string;
 }
 
-/** Local/Global/Map/Trends tab bar shown under every hazard section's PageHero -- styled as the same pill segmented control already used for Home's USGS/NCS toggle and Trends' window selector, but as real links (each sub-page is its own route) rather than client-side-only state. */
+/** Local/Regional/Global/Map/Trends tab bar shown under every hazard section's PageHero -- styled as the same pill segmented control already used for Home's USGS/NCS toggle and Trends' window selector, but as real links (each sub-page is its own route) rather than client-side-only state. */
 export function HazardSubNav({ basePath }: HazardSubNavProps) {
     const pathname = usePathname();
     const { t } = useT();

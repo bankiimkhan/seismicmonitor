@@ -30,15 +30,51 @@ export const REGIONS: Region[] = [
     { id: 'south-america', label: 'South America', minLat: -60, maxLat: 13, minLng: -90, maxLng: -30 },
 ];
 
+export const REGION_BY_ID: Record<string, Region> = Object.fromEntries(
+    REGIONS.map((r) => [r.id, r])
+);
+
+/** True when the point falls inside this region's box. */
+export function pointInRegion(lat: number, lng: number, region: Region): boolean {
+    return lat >= region.minLat && lat <= region.maxLat && lng >= region.minLng && lng <= region.maxLng;
+}
+
+/**
+ * Resolves a point to the region that actually contains it, or `null` when no
+ * region does.
+ *
+ * This is the classification function -- the one to use for bucketing events,
+ * filtering a Regional view, or deciding what "worldwide" contains beyond the
+ * named regions. regionForPoint below cannot do that job: it never returns
+ * null, so every mid-ocean event lands in whichever region's centre happens to
+ * be nearest.
+ *
+ * That distinction is not theoretical. The `region_id` column on hazard_events
+ * was populated with the nearest-region answer, which is why 794 earthquakes
+ * are stored as 'north-america' spanning lat -29.4 to 69.4 and out to lng
+ * -179.6 -- well outside that region's box (lat 7..85, lng -170..-50) -- and a
+ * further 667 rows carry no region at all. Nothing reads that column for
+ * classification any more; region is computed here, from lat/lng, so every
+ * surface buckets an event the same way.
+ */
+export function regionForPointStrict(lat: number, lng: number): Region | null {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    for (const region of REGIONS) {
+        if (pointInRegion(lat, lng, region)) return region;
+    }
+    return null;
+}
+
 /** Resolves any lat/lng to a region -- falls back to the nearest region by
  * bbox-center distance for points outside every box (open ocean, poles,
- * remote islands), so callers never need to handle a "no region" case. */
+ * remote islands), so callers never need to handle a "no region" case.
+ *
+ * Use this only to *label* a user's own location ("your region"). For
+ * classifying events use regionForPointStrict, which admits when a point is
+ * outside every region instead of inventing the closest one. */
 export function regionForPoint(lat: number, lng: number): Region {
-    for (const region of REGIONS) {
-        if (lat >= region.minLat && lat <= region.maxLat && lng >= region.minLng && lng <= region.maxLng) {
-            return region;
-        }
-    }
+    const exact = regionForPointStrict(lat, lng);
+    if (exact) return exact;
     let best = REGIONS[0];
     let bestDist = Infinity;
     for (const region of REGIONS) {

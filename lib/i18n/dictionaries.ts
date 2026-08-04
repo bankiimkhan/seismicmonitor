@@ -9,6 +9,7 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
         'nav.earthquake': 'Earthquake',
         'nav.tsunami': 'Tsunami',
         'nav.local': 'Local',
+        'nav.regional': 'Regional',
         'nav.global': 'Global',
         'nav.map': 'Map',
         'nav.wildfire': 'Wildfire',

@@ -1,10 +1,6 @@
 "use client";
-import { HazardTrends } from '@/components/HazardTrends';
+import { TrendsView } from '@/components/hazard/TrendsView';
 
 export default function TsunamiTrendsPage() {
-  return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-8 md:px-8 md:pb-10">
-      <HazardTrends hazardSlug="tsunami" />
-    </div>
-  );
+  return <TrendsView slug="tsunami" />;
 }
