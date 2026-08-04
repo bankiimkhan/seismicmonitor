@@ -44,8 +44,11 @@ export interface EventQuery {
     /** Hazard types to include. Empty/omitted means every type. */
     hazardTypes?: string[];
     scope: EventScope;
-    /** Window length in hours, ending at `until`. */
-    hours: number;
+    /** Window length in hours, ending at `until`. Omit for every record ever
+     * archived -- the default for the Regional and Global views, which are
+     * meant to be the complete history of a place rather than a recent slice.
+     * The only bound then is MAX_PAGES below. */
+    hours?: number;
     /** Epoch ms the window ends at; defaults to now. Lets the exact-date filter
      * ask for one specific past day rather than "everything since that day",
      * which `limit` would then trim back to the most recent events. */
@@ -64,17 +67,28 @@ export interface EventQueryResult {
      * can still report an honest count. */
     total: number;
     /** The window actually used, echoed so clients render the same range they
-     * were served rather than recomputing it. */
-    window: { sinceMs: number; untilMs: number; hours: number };
+     * were served rather than recomputing it. `sinceMs`/`hours` are null for an
+     * unbounded (all-records) query. */
+    window: { sinceMs: number | null; untilMs: number; hours: number | null };
     /** True when `limit` cut the list short. */
     truncated: boolean;
+    /** True when paging hit MAX_PAGES, so `total` is a floor rather than the
+     * real count. Unbounded queries are the only realistic way to reach it, and
+     * a count that silently stops growing is worse than one that says so. */
+    countCapped: boolean;
 }
 
 // PostgREST silently caps an unbounded select at 1000 rows. Paging explicitly
 // keeps a busy window from losing its newest data with no error anywhere --
 // the same reasoning /api/trends already documents.
 const PAGE_SIZE = 1000;
-const MAX_PAGES = 10;
+// Raised from 10 now that Regional and Global run unbounded: with no lower time
+// bound the archive's whole history is in scope, and a 10k ceiling would start
+// silently truncating counts as it grows. Each page is one subrequest and
+// Workers allows 50 per invocation, so this stays well inside the budget while
+// giving substantial headroom over the current ~2k rows. `countCapped` reports
+// when even this is not enough rather than letting the number quietly plateau.
+const MAX_PAGES = 20;
 
 const SELECT_COLUMNS =
     'id, hazard_type, place, url, canonical_time, lat, lng, depth_km, magnitude, alert_level, confidence_tier';
@@ -99,18 +113,10 @@ interface RawRow {
  * REGIONS overlap and priority order decides which one an event belongs to.
  */
 function bboxForScope(scope: EventScope): { minLat: number; maxLat: number; minLng: number; maxLng: number } | null {
-    if (scope.kind === 'global') return null;
-    if (scope.kind === 'region') {
-        const region: Region | undefined = REGION_BY_ID[scope.regionId];
-        if (!region) return null;
-        return { minLat: region.minLat, maxLat: region.maxLat, minLng: region.minLng, maxLng: region.maxLng };
-    }
-    return {
-        minLat: Math.max(-90, scope.lat - scope.rangeDeg),
-        maxLat: Math.min(90, scope.lat + scope.rangeDeg),
-        minLng: scope.lng - scope.rangeDeg,
-        maxLng: scope.lng + scope.rangeDeg,
-    };
+    if (scope.kind !== 'region') return null;
+    const region: Region | undefined = REGION_BY_ID[scope.regionId];
+    if (!region) return null;
+    return { minLat: region.minLat, maxLat: region.maxLat, minLng: region.minLng, maxLng: region.maxLng };
 }
 
 export function normalizeRow(row: RawRow): NormalizedEvent | null {
@@ -145,20 +151,24 @@ export function normalizeRow(row: RawRow): NormalizedEvent | null {
 async function fetchRows(
     admin: SupabaseClient,
     query: EventQuery,
-    sinceIso: string,
+    sinceIso: string | null,
     untilIso: string
-): Promise<RawRow[]> {
+): Promise<{ rows: RawRow[]; capped: boolean }> {
     const bbox = bboxForScope(query.scope);
     const rows: RawRow[] = [];
+    let capped = true;
 
     for (let page = 0; page < MAX_PAGES; page++) {
         let q = admin
             .from('hazard_events')
             .select(SELECT_COLUMNS)
-            .gte('canonical_time', sinceIso)
             .lte('canonical_time', untilIso)
             .order('canonical_time', { ascending: false })
             .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+
+        // Omitted entirely for an unbounded query, so the archive's full
+        // history is in scope rather than an arbitrary early cutoff.
+        if (sinceIso !== null) q = q.gte('canonical_time', sinceIso);
 
         if (query.hazardTypes && query.hazardTypes.length > 0) {
             q = q.in('hazard_type', query.hazardTypes);
@@ -174,10 +184,15 @@ async function fetchRows(
 
         const batch = (data ?? []) as RawRow[];
         rows.push(...batch);
-        if (batch.length < PAGE_SIZE) break;
+        // A short page means the result set is exhausted -- the only way to
+        // leave this loop having seen everything there is.
+        if (batch.length < PAGE_SIZE) {
+            capped = false;
+            break;
+        }
     }
 
-    return rows;
+    return { rows, capped };
 }
 
 /**
@@ -188,10 +203,12 @@ export async function queryEvents(query: EventQuery): Promise<EventQueryResult> 
     // Anchored once, so the count and the list this query produces cannot
     // disagree because they were derived a few seconds apart.
     const untilMs = query.until ?? Date.now();
-    const sinceMs = untilMs - query.hours * 60 * 60 * 1000;
-    const sinceIso = new Date(sinceMs).toISOString();
+    const sinceMs = query.hours !== undefined ? untilMs - query.hours * 60 * 60 * 1000 : null;
+    const sinceIso = sinceMs !== null ? new Date(sinceMs).toISOString() : null;
 
-    const rows = await fetchRows(getSupabaseAdmin(), query, sinceIso, new Date(untilMs).toISOString());
+    const { rows, capped } = await fetchRows(
+        getSupabaseAdmin(), query, sinceIso, new Date(untilMs).toISOString()
+    );
 
     let events = rows
         .map(normalizeRow)
@@ -230,8 +247,9 @@ export async function queryEvents(query: EventQuery): Promise<EventQueryResult> 
     return {
         events: limit !== undefined ? events.slice(0, limit) : events,
         total,
-        window: { sinceMs, untilMs, hours: query.hours },
+        window: { sinceMs, untilMs, hours: query.hours ?? null },
         truncated,
+        countCapped: capped,
     };
 }
 

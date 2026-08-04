@@ -8,14 +8,33 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
-  // Earthquake's Local/Global/Map/Trends moved from top-level routes into
+  // Earthquake's Global/Map/Trends moved from top-level routes into
   // /earthquake/* as part of the navbar restructure (hazard-type-first nav);
   // Severe Weather was folded into Cyclone (same source-overlap precedent
   // Home's hazard grid already used). Permanent redirects so old bookmarks/
   // links still resolve.
+  //
+  // The Local view was then retired outright, taking /:hazard/local with it, so
+  // both it and the top-level /local land on Regional -- the tab that replaced
+  // it and the one every /:hazard index now redirects to. lib/hazardModel.ts
+  // does the matching thing for the data half of a retired link, resolving
+  // `scope=point` to a valid scope instead of throwing; a permanent redirect
+  // pointing at a route that no longer exists is the same dead end, and gets
+  // cached by the browser forever.
+  //
+  // The hazard alternation is spelled out because next.config.ts is evaluated
+  // outside the app's module graph and cannot import HAZARD_SLUGS from
+  // lib/hazardConfig.ts, which pulls in React icon components. Constrained
+  // rather than a bare `/:hazard/local` so an unknown prefix keeps 404ing
+  // directly instead of being permanently redirected to another 404.
   async redirects() {
     return [
-      { source: '/local', destination: '/earthquake/local', permanent: true },
+      { source: '/local', destination: '/earthquake/regional', permanent: true },
+      {
+        source: '/:hazard(earthquake|tsunami|cyclone|landslide|volcano|wildfire)/local',
+        destination: '/:hazard/regional',
+        permanent: true,
+      },
       { source: '/global', destination: '/earthquake/global', permanent: true },
       { source: '/map', destination: '/earthquake/map', permanent: true },
       { source: '/trends', destination: '/earthquake/trends', permanent: true },
@@ -36,8 +55,8 @@ const nextConfig: NextConfig = {
       // Full URLs leak the visited hazard/quake path to the third-party
       // reverse-geocode and Nominatim calls; origin-only on cross-origin.
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-      // Geolocation is core to Local/Home and must stay available to this
-      // origin; nothing else is used.
+      // Geolocation is core to Home and Regional's detected-region default and
+      // must stay available to this origin; nothing else is used.
       { key: 'Permissions-Policy', value: 'geolocation=(self), camera=(), microphone=(), payment=(), usb=()' },
     ];
 

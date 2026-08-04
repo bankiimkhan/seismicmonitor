@@ -32,22 +32,45 @@ export interface NormalizedEvent {
     url: string;
 }
 
+/**
+ * The two slices of the world anything can be scoped to.
+ *
+ * A third kind, `point` (a box around the user's coordinates), backed the Local
+ * view and was removed with it. It was a genuinely different shape from a
+ * region rather than a subset -- so an event could be "local" without being in
+ * your region, and vice versa, and the two counts disagreed by construction.
+ * With it gone, every geographic bucket in the app comes from the same region
+ * definitions.
+ */
 export type EventScope =
     | { kind: 'global' }
-    | { kind: 'region'; regionId: string }
-    | { kind: 'point'; lat: number; lng: number; rangeDeg: number };
+    | { kind: 'region'; regionId: string };
 
-/** Default box for a "near me" query, in degrees. Matches what the Local pages
- * used before this layer existed, so the meaning of "local" did not shift. */
-export const DEFAULT_POINT_RANGE_DEG = 15;
-
-/** The two windows the UI offers everywhere it offers a choice of window. Kept
- * here so Home's 24H/7D toggle and every other surface agree on what each
- * means down to the hour. */
+/** The two windows Home's toggle offers. Kept here so that control and every
+ * other surface agree on what each means down to the hour. */
 export const WINDOW_PRESETS = [
     { key: '24h', hours: 24, label: '24H', longLabel: 'Last 24 hours' },
     { key: '7d', hours: 168, label: '7D', longLabel: 'Last 7 days' },
 ] as const;
+
+/** Range options for the Regional and Global event lists.
+ *
+ * `hours: null` is "every record ever archived", and it is deliberately first
+ * and the default: those two views are meant to be the complete history of a
+ * place, newest first. The bounded ranges remain as a way to narrow down, not
+ * as the starting point. */
+export const RANGE_OPTIONS: { hours: number | null; label: string }[] = [
+    { hours: null, label: 'All records' },
+    { hours: 24, label: 'Last 24 hours' },
+    { hours: 168, label: 'Last 7 days' },
+    { hours: 720, label: 'Last 30 days' },
+    { hours: 2160, label: 'Last 90 days' },
+    { hours: 8760, label: 'Past year' },
+];
+
+export function rangeLabel(hours: number | null): string {
+    return RANGE_OPTIONS.find((r) => r.hours === hours)?.label ?? `Last ${Math.round((hours ?? 0) / 24)} days`;
+}
 
 export type WindowKey = (typeof WINDOW_PRESETS)[number]['key'];
 
@@ -59,55 +82,31 @@ export function hoursForWindow(key: WindowKey): number {
  * only place request-building knows the param names. */
 export function scopeToParams(scope: EventScope, params = new URLSearchParams()): URLSearchParams {
     params.set('scope', scope.kind);
-    if (scope.kind === 'region') {
-        params.set('regionId', scope.regionId);
-    } else if (scope.kind === 'point') {
-        params.set('lat', String(scope.lat));
-        params.set('lng', String(scope.lng));
-        params.set('range', String(scope.rangeDeg));
-    }
+    if (scope.kind === 'region') params.set('regionId', scope.regionId);
     return params;
-}
-
-function finite(raw: string | null): number | undefined {
-    if (raw === null || raw.trim() === '') return undefined;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : undefined;
 }
 
 /**
  * Reads a scope out of request params, falling back to global.
  *
  * Falls back rather than erroring, but only to the *widest* scope: an
- * unparseable region or a half-supplied point becomes "worldwide", which
- * over-reports. Defaulting to a narrow scope instead would quietly hide events
- * the caller asked to see.
+ * unrecognised region becomes "worldwide", which over-reports. Defaulting to a
+ * narrower scope would quietly hide events the caller asked to see. Old
+ * `scope=point` links from before the Local view was removed land here and
+ * resolve to global for the same reason.
  */
 export function parseScope(params: URLSearchParams): EventScope {
-    const kind = params.get('scope');
-
-    if (kind === 'region') {
+    if (params.get('scope') === 'region') {
         const regionId = params.get('regionId');
         if (regionId && REGION_BY_ID[regionId]) return { kind: 'region', regionId };
-        return { kind: 'global' };
     }
-
-    if (kind === 'point') {
-        const lat = finite(params.get('lat'));
-        const lng = finite(params.get('lng'));
-        if (lat === undefined || lng === undefined) return { kind: 'global' };
-        const rangeDeg = finite(params.get('range')) ?? DEFAULT_POINT_RANGE_DEG;
-        return { kind: 'point', lat, lng, rangeDeg };
-    }
-
     return { kind: 'global' };
 }
 
 /** How a scope is named in copy, e.g. "South Asia" / "Worldwide". */
 export function scopeLabel(scope: EventScope): string {
-    if (scope.kind === 'global') return 'Worldwide';
     if (scope.kind === 'region') return REGION_BY_ID[scope.regionId]?.label ?? 'Region';
-    return 'Near you';
+    return 'Worldwide';
 }
 
 /**
@@ -123,8 +122,11 @@ export type DataStatus = 'loading' | 'ready' | 'failed';
 export interface EventsResponse {
     events: NormalizedEvent[];
     total: number;
-    window: { sinceMs: number; untilMs: number; hours: number };
+    /** `sinceMs`/`hours` are null for an all-records query. */
+    window: { sinceMs: number | null; untilMs: number; hours: number | null };
     truncated: boolean;
+    /** `total` is a floor, not the exact count -- paging hit its ceiling. */
+    countCapped: boolean;
 }
 
 /** Per-hazard-type rollup behind Home's card grid. */

@@ -9,16 +9,10 @@ import { useLocalStorageState } from '@/hooks/useLocalStorageState';
 import { groupBy, rankGroups, countByDay } from '@/lib/hazardAggregates';
 import { REGIONS } from '@/lib/regions';
 import { HAZARD_CONFIG, RANKING_LABELS, type HazardSlug, type RankingMethod } from '@/lib/hazardConfig';
-import type { EventScope } from '@/lib/hazardModel';
-
-const RANGES = [
-    { days: 7, label: 'Last 7 days' },
-    { days: 30, label: 'Last 30 days' },
-    { days: 90, label: 'Last 90 days' },
-    { days: 365, label: 'Past year' },
-];
+import { RANGE_OPTIONS, rangeLabel, type EventScope } from '@/lib/hazardModel';
 
 const ALL_REGIONS = '__all__';
+const ALL_RECORDS = 'all';
 
 /**
  * Rankings of countries and regions for one hazard type.
@@ -40,7 +34,7 @@ export function TrendsView({ slug }: { slug: HazardSlug }) {
     const config = HAZARD_CONFIG[slug];
     const metric = config.severity;
 
-    const [days, setDays] = useLocalStorageState(`${slug}_trends_days`, 30);
+    const [rangeHours, setRangeHours] = useLocalStorageState<number | null>(`${slug}_trends_hours`, null);
     const [regionId, setRegionId] = useLocalStorageState(`${slug}_trends_region`, ALL_REGIONS);
     const [dimension, setDimension] = useLocalStorageState<'country' | 'region'>(`${slug}_trends_dim`, 'country');
     const [rankBy, setRankBy] = useLocalStorageState<RankingMethod>(`${slug}_trends_rank`, 'count');
@@ -55,20 +49,36 @@ export function TrendsView({ slug }: { slug: HazardSlug }) {
         [regionId]
     );
 
-    const hours = days * 24;
     const { status, events, total, error, offline, refetch } = useHazardQuery({
         types: config.hazardType.split(',').map((t) => t.trim()),
         scope,
-        hours,
+        hours: rangeHours ?? undefined,
         limit: 2000,
     });
 
-    const ranked = useMemo(
-        () => rankGroups(groupBy(events, dimension, hours), activeRank),
-        [events, dimension, hours, activeRank]
-    );
-
     const daily = useMemo(() => countByDay(events), [events]);
+
+    // "Events per day" needs a real denominator. For a bounded range that is
+    // the range itself; for all-records it has to be the span the data
+    // actually covers, because the archive only starts when ingest did --
+    // dividing by "all time" would be meaningless, and dividing by the
+    // requested range is impossible when none was requested.
+    const spanHours = useMemo(() => {
+        if (rangeHours !== null) return rangeHours;
+        if (events.length === 0) return 24;
+        let oldest = Infinity;
+        let newest = -Infinity;
+        for (const event of events) {
+            if (event.time < oldest) oldest = event.time;
+            if (event.time > newest) newest = event.time;
+        }
+        return Math.max((newest - oldest) / 3_600_000, 24);
+    }, [rangeHours, events]);
+
+    const ranked = useMemo(
+        () => rankGroups(groupBy(events, dimension, spanHours), activeRank),
+        [events, dimension, spanHours, activeRank]
+    );
 
     const measured = useMemo(
         () => events.filter((e) => e.severity !== null).map((e) => e.severity as number),
@@ -93,10 +103,14 @@ export function TrendsView({ slug }: { slug: HazardSlug }) {
                         <select
                             id="trends-range"
                             className="w-full cursor-pointer rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-xs transition-colors hover:border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                            value={days}
-                            onChange={(e) => setDays(Number(e.target.value))}
+                            value={rangeHours === null ? ALL_RECORDS : rangeHours}
+                            onChange={(e) => setRangeHours(e.target.value === ALL_RECORDS ? null : Number(e.target.value))}
                         >
-                            {RANGES.map((r) => <option key={r.days} value={r.days}>{r.label}</option>)}
+                            {RANGE_OPTIONS.map((option) => (
+                                <option key={option.hours ?? ALL_RECORDS} value={option.hours ?? ALL_RECORDS}>
+                                    {option.label}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
@@ -157,7 +171,7 @@ export function TrendsView({ slug }: { slug: HazardSlug }) {
                 <NoEventsState
                     title={config.emptyTitle}
                     description={config.emptyDescription}
-                    scopeNote={`${RANGES.find((r) => r.days === days)?.label} · ${regionId === ALL_REGIONS ? 'Worldwide' : REGIONS.find((r) => r.id === regionId)?.label}`}
+                    scopeNote={`${rangeLabel(rangeHours)} · ${regionId === ALL_REGIONS ? 'Worldwide' : REGIONS.find((r) => r.id === regionId)?.label}`}
                     coverageNotice={config.coverageNotice}
                 />
             ) : (
@@ -171,7 +185,7 @@ export function TrendsView({ slug }: { slug: HazardSlug }) {
                         />
                         <StatCard
                             label="Per day"
-                            value={total / Math.max(days, 1)}
+                            value={total / Math.max(spanHours / 24, 1)}
                             decimals={1}
                             placeholder={status === 'loading' ? '—' : undefined}
                         />

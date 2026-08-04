@@ -46,7 +46,6 @@ describe('scope round-trip', () => {
         for (const scope of [
             { kind: 'global' } as const,
             { kind: 'region', regionId: 'east-asia' } as const,
-            { kind: 'point', lat: 23.8, lng: 90.4, rangeDeg: 15 } as const,
         ]) {
             expect(parseScope(scopeToParams(scope))).toEqual(scope);
         }
@@ -56,9 +55,15 @@ describe('scope round-trip', () => {
     // caller asked to see. Only the first is acceptable.
     it('falls back to global rather than a narrower scope on bad input', () => {
         expect(parseScope(new URLSearchParams('scope=region&regionId=atlantis'))).toEqual({ kind: 'global' });
-        expect(parseScope(new URLSearchParams('scope=point&lat=abc&lng=90'))).toEqual({ kind: 'global' });
-        expect(parseScope(new URLSearchParams('scope=point&lat=23'))).toEqual({ kind: 'global' });
+        expect(parseScope(new URLSearchParams('scope=region'))).toEqual({ kind: 'global' });
         expect(parseScope(new URLSearchParams(''))).toEqual({ kind: 'global' });
+    });
+
+    // Links minted while the Local view existed are still in browser history
+    // and bookmarks. They must resolve to something valid and wide, not throw.
+    it('resolves retired point-scope links to global', () => {
+        expect(parseScope(new URLSearchParams('scope=point&lat=23.8&lng=90.4&range=15')))
+            .toEqual({ kind: 'global' });
     });
 });
 
@@ -74,6 +79,5 @@ describe('scopeLabel', () => {
     it('names each scope for display', () => {
         expect(scopeLabel({ kind: 'global' })).toBe('Worldwide');
         expect(scopeLabel({ kind: 'region', regionId: 'south-asia' })).toBe('South Asia');
-        expect(scopeLabel({ kind: 'point', lat: 0, lng: 0, rangeDeg: 15 })).toBe('Near you');
     });
 });

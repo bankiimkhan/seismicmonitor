@@ -38,10 +38,6 @@ interface QuakeListProps {
     visibleCount?: number;
     newIds?: Set<string>;
     userLoc?: { lat: number; lng: number } | null;
-    /** See QuakeTable -- same override, so the mobile and desktop presentations
-     * of one list don't explain an empty result differently. */
-    emptyTitle?: string;
-    emptyDescription?: string;
 }
 
 const SEVERITY_DOT: Record<Severity, string> = {
@@ -57,7 +53,7 @@ const SEVERITY_TEXT: Record<Severity, string> = {
 };
 
 export const QuakeList: React.FC<QuakeListProps> = ({
-    quakes, loading, error, onRetry, visibleCount = quakes.length, newIds, userLoc, emptyTitle, emptyDescription,
+    quakes, loading, error, onRetry, visibleCount = quakes.length, newIds, userLoc,
 }) => {
     const { t } = useT();
     const [announcement, setAnnouncement] = useState('');
@@ -104,7 +100,7 @@ export const QuakeList: React.FC<QuakeListProps> = ({
         return (
             <>
                 {liveRegion}
-                <EmptyState title={emptyTitle ?? t('quake.noneFound')} description={emptyDescription ?? t('quake.noneFoundDesc')} />
+                <EmptyState title={t('quake.noneFound')} description={t('quake.noneFoundDesc')} />
             </>
         );
     }

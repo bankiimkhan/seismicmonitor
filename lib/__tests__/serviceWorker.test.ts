@@ -124,7 +124,7 @@ describe('service worker routing', () => {
         // into a permanent loop -- the worker must not answer them at all.
         expect(await sw.handleFetch(req('/_next/static/webpack/633457081244afec.hot-update.json'))).toBeUndefined();
         expect(await sw.handleFetch(req('/_next/webpack-hmr'))).toBeUndefined();
-        expect(await sw.handleFetch(req('/earthquake/local?_rsc=1a2b3'))).toBeUndefined();
+        expect(await sw.handleFetch(req('/earthquake/regional?_rsc=1a2b3'))).toBeUndefined();
     });
 
     it('serves a real response for API calls while offline instead of undefined', async () => {

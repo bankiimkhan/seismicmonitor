@@ -49,11 +49,9 @@ export function RecentEventsView({
         ?? `Last ${Math.round(hours / 24)} days`;
     const where = scopeLabel(scope);
 
-    // Where to go to change the question. A region scope has a Regional tab
-    // that can express it; a point scope has Local.
-    const moduleHref = scope.kind === 'region' ? `/${slug}/regional`
-        : scope.kind === 'point' ? `/${slug}/local`
-            : `/${slug}/global`;
+    // Where to go to change the question -- the tab whose scope matches this
+    // one, so arriving there shows the same events with filters attached.
+    const moduleHref = scope.kind === 'region' ? `/${slug}/regional` : `/${slug}/global`;
 
     return (
         <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8 md:py-10">

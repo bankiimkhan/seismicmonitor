@@ -8,9 +8,10 @@ import { log } from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 
 /**
- * The single event-list endpoint, serving every scope the UI offers: Local
- * (`scope=point`), Regional (`scope=region`), Global (`scope=global`), the map,
- * and the per-card event lists reached from Home.
+ * The single event-list endpoint, serving every scope the UI offers: Regional
+ * (`scope=region`), Global (`scope=global`), the map, and the per-card event
+ * lists reached from Home. Retired `scope=point` links resolve to global --
+ * see parseScope.
  *
  * It replaces the split where earthquakes came from a live upstream and every
  * other hazard came from the archive, which is what allowed the same window to
@@ -40,7 +41,13 @@ export async function GET(req: NextRequest) {
         : undefined;
 
     const scope = parseScope(searchParams);
-    const hours = Math.min(8760, Math.max(1, finiteParamOr(searchParams.get('hours'), 24)));
+
+    // An absent `hours` means every record, not a default window. Regional and
+    // Global rely on this: they are the complete history of a place, and a
+    // silent 24h default would have them quietly omit almost all of it.
+    const rawHours = finiteParam(searchParams.get('hours'));
+    const hours = rawHours === undefined ? undefined : Math.min(87600, Math.max(1, rawHours));
+
     const limit = Math.min(2000, Math.max(1, finiteParamOr(searchParams.get('limit'), 300)));
     const minSeverity = finiteParam(searchParams.get('minSeverity'));
     const country = searchParams.get('country') || undefined;

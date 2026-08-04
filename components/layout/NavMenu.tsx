@@ -5,9 +5,8 @@ import { HomeIcon, ActivityIcon, WavesIcon, InfoIcon } from '@/components/ui/ico
 import { HAZARD_CONFIG } from '@/lib/hazardConfig';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
-// Reorganized (per the navbar restructure) around hazard types instead of
-// earthquake-only Local/Global/Map -- each hazard link now points at that
-// hazard's section index (redirects to its own /local), and Local/Global/
+// Organized around hazard types: each hazard link points at that hazard's
+// section index (which redirects to its own /regional), and Regional/Global/
 // Map/Trends live one level down as HazardSubNav tabs. Icons for the 5
 // non-earthquake hazards come straight from lib/hazardConfig.ts (same icon
 // used on that section's own PageHero) rather than being duplicated here.

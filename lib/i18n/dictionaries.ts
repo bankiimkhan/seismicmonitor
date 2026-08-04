@@ -8,7 +8,6 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
         'nav.overview': 'Overview',
         'nav.earthquake': 'Earthquake',
         'nav.tsunami': 'Tsunami',
-        'nav.local': 'Local',
         'nav.regional': 'Regional',
         'nav.global': 'Global',
         'nav.map': 'Map',
@@ -98,21 +97,6 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
         'filters.last90': 'Last 3 months',
         'filters.lastYear': 'Past year',
         'filters.last24h': 'Last 24 hours',
-        'filters.eventsFound': '{count} event{plural} found',
-
-        // The Local page filters by USGS's felt-distance rule on top of the
-        // toolbar filters, and nothing in the toolbar says so -- an M3 is only
-        // "local" within ~20km, which empties the list for most people most of
-        // the time. These state that plainly instead of letting the page read
-        // as "nothing happened near you".
-        'local.feltOnly': 'Showing only events close enough to be felt at your location.',
-        'local.feltHidden': '{count} more event{plural} in the region {verb} too far away to be felt{nearest}.',
-        'local.feltNearest': ' — nearest was M{mag} at {distance}',
-        'local.feltShowAll': 'Show them anyway',
-        'local.feltShowFeltOnly': 'Show only what you would feel',
-        'local.feltAllShown': 'Showing every event in the region, including those too far away to be felt.',
-        'local.feltEmptyTitle': 'Nothing close enough to be felt',
-        'local.feltEmptyDesc': 'No event in this window was strong enough to be felt at your distance from it. That is not the same as nothing happening — use "Show them anyway" above to see everything in the region.',
         'filters.export': 'Export',
         'filters.exportCsv': 'Export CSV',
         'filters.exportJson': 'Export JSON',

@@ -3,13 +3,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/lib/i18n/LocaleProvider';
 
-// Ordered by widening scope: where you are, the region containing it, then the
-// whole world. Regional sits between Local and Global because that is the step
-// it represents -- Local is a box around a point, Regional is one of the
-// predefined regions in lib/regions.ts, Global is everything including events
-// that fall outside every region.
+// Ordered by widening scope: one region, then the whole world.
+//
+// There is no Local tab. It was a +/-15-degree box around the user's own point,
+// which is a different shape from a region rather than a smaller one -- from
+// Dhaka it reached east past South Asia's edge into Thailand while excluding
+// Afghanistan and Pakistan, so its count agreed with neither Regional nor
+// Global. Region membership (lib/regions.ts) is now the only geographic
+// bucketing in the app, which is what lets one count mean one thing.
 const TABS = [
-    { key: 'local', labelKey: 'nav.local' },
     { key: 'regional', labelKey: 'nav.regional' },
     { key: 'global', labelKey: 'nav.global' },
     { key: 'map', labelKey: 'nav.map' },
@@ -17,11 +19,11 @@ const TABS = [
 ] as const;
 
 interface HazardSubNavProps {
-    /** e.g. "/wildfire" -- tabs link to `${basePath}/local`, `/regional`, `/global`, `/map`, `/trends`. */
+    /** e.g. "/wildfire" -- tabs link to `${basePath}/regional`, `/global`, `/map`, `/trends`. */
     basePath: string;
 }
 
-/** Local/Regional/Global/Map/Trends tab bar shown under every hazard section's PageHero -- styled as the same pill segmented control already used for Home's USGS/NCS toggle and Trends' window selector, but as real links (each sub-page is its own route) rather than client-side-only state. */
+/** Regional/Global/Map/Trends tab bar shown under every hazard section's PageHero -- styled as the same pill segmented control used elsewhere, but as real links (each sub-page is its own route) rather than client-side-only state. */
 export function HazardSubNav({ basePath }: HazardSubNavProps) {
     const pathname = usePathname();
     const { t } = useT();

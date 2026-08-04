@@ -3,55 +3,53 @@ import { useMemo } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Input, Label } from '@/components/ui/Input';
 import { EventTable } from '@/components/EventTable';
+import { ExportButtons } from '@/components/ExportButtons';
 import { CoverageNotice } from '@/components/CoverageNotice';
 import { UnavailableState, NoEventsState } from '@/components/ui/DataState';
 import { useHazardQuery } from '@/hooks/useHazardQuery';
 import { useLocalStorageState } from '@/hooks/useLocalStorageState';
 import { HAZARD_CONFIG, type HazardSlug } from '@/lib/hazardConfig';
-import { scopeLabel, type EventScope } from '@/lib/hazardModel';
+import { scopeLabel, rangeLabel, RANGE_OPTIONS, type EventScope } from '@/lib/hazardModel';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Sentinel for the <select>, whose values must be strings. */
+const ALL_RECORDS = 'all';
 
 interface HazardScopeViewProps {
     slug: HazardSlug;
     scope: EventScope;
-    /** Scope-specific controls rendered into the filter bar -- the location
-     * switcher on Local, the region picker on Regional, nothing on Global. */
+    /** Scope-specific controls rendered into the filter bar -- the region
+     * picker on Regional, nothing on Global. */
     scopeControls?: React.ReactNode;
-    /** Rendered above the filters, e.g. Local's location prompt. */
-    banner?: React.ReactNode;
-    /** Blocks the query until a prerequisite resolves (Local has no scope until
-     * a location does). Renders `pendingMessage` instead. */
-    enabled?: boolean;
-    pendingMessage?: string;
-    /** Distance column + felt-distance context; only for point scopes. */
-    userLoc?: { lat: number; lng: number } | null;
-    /** Persists filters per view, so Local and Global don't share one setting. */
+    /** Persists filters per view, so Regional and Global don't share one. */
     storageKey: string;
 }
 
 /**
- * The body shared by Local, Regional and Global for every hazard type.
+ * The body shared by Regional and Global for every hazard type.
  *
  * These were five near-identical page bodies (HazardFeed for the five
- * non-earthquake hazards, plus earthquake's own hand-rolled Local and Global)
- * each running their own fetch with their own window. Now they differ only by
- * the `scope` they are handed, which is the whole point: "12 earthquakes in
- * South Asia in the last 24 hours" is the same query whether it was reached
- * from Local, from Regional, or by clicking a card on Home.
+ * non-earthquake hazards, plus earthquake's own hand-rolled ones) each running
+ * their own fetch with their own window. Now they differ only by the `scope`
+ * they are handed: "earthquakes in South Asia" is the same query whether it was
+ * reached from Regional or by clicking a card on Home.
+ *
+ * Both views default to the entire archive, newest first -- they are the
+ * complete record of a place, not a recent slice of it. The range control
+ * narrows from there rather than being the starting point.
  *
  * Filters adapt to the hazard type rather than assuming earthquakes: the
  * severity control only appears for types that report a severity number, and it
  * is labelled and stepped in that type's own units.
  */
-export function HazardScopeView({
-    slug, scope, scopeControls, banner, enabled = true, pendingMessage, userLoc, storageKey,
-}: HazardScopeViewProps) {
+export function HazardScopeView({ slug, scope, scopeControls, storageKey }: HazardScopeViewProps) {
     const config = HAZARD_CONFIG[slug];
     const metric = config.severity;
 
     const [search, setSearch] = useLocalStorageState(`${storageKey}_search`, '');
-    const [days, setDays] = useLocalStorageState(`${storageKey}_days`, config.defaultRangeDays);
+    // null = every record. Stored as null rather than a large number so
+    // "all" never silently becomes a very long but finite window.
+    const [rangeHours, setRangeHours] = useLocalStorageState<number | null>(`${storageKey}_hours`, null);
     const [minSeverity, setMinSeverity] = useLocalStorageState(`${storageKey}_minSeverity`, 0);
     const [specificDate, setSpecificDate] = useLocalStorageState(`${storageKey}_date`, '');
 
@@ -60,7 +58,7 @@ export function HazardScopeView({
     // instead of always meaning "the last 24 hours from now".
     const dayStartMs = specificDate ? Date.parse(`${specificDate}T00:00:00Z`) : NaN;
     const hasSpecificDay = Number.isFinite(dayStartMs);
-    const hours = hasSpecificDay ? 24 : days * 24;
+    const hours = hasSpecificDay ? 24 : rangeHours ?? undefined;
     const until = hasSpecificDay ? dayStartMs + DAY_MS : undefined;
 
     const hazardTypes = useMemo(
@@ -68,7 +66,7 @@ export function HazardScopeView({
         [config.hazardType]
     );
 
-    const { status, events, total, truncated, error, offline, refetch } = useHazardQuery({
+    const { status, events, total, truncated, countCapped, error, offline, refetch } = useHazardQuery({
         types: hazardTypes,
         scope,
         hours,
@@ -78,7 +76,6 @@ export function HazardScopeView({
         // compare against. A floor on a type that reports none would be a
         // filter nothing could pass.
         minSeverity: metric && minSeverity > 0 ? minSeverity : undefined,
-        enabled,
         autoRefresh: true,
         refreshIntervalMs: 600_000,
     });
@@ -94,15 +91,27 @@ export function HazardScopeView({
         );
     }, [events, search]);
 
-    const windowLabel = hasSpecificDay
-        ? specificDate
-        : days === 1 ? 'Last 24 hours' : `Last ${days} days`;
+    // CSV/JSON export lived on the old earthquake Local page and would have
+    // been lost with it. Adapted here rather than dropped -- lib/exportQuakes.ts
+    // carries CSV-injection hardening that is worth keeping, and export applies
+    // to every hazard type, not just the one page that happened to have it.
+    const exportable = useMemo(() => visible.map((event) => ({
+        id: event.id,
+        properties: {
+            mag: event.severity,
+            place: event.place,
+            time: event.time,
+            url: event.url,
+        },
+        geometry: { coordinates: [event.lng, event.lat, event.depthKm ?? 0] as [number, number, number] },
+    })), [visible]);
+
+    const windowLabel = hasSpecificDay ? specificDate : rangeLabel(rangeHours);
     const scopeNote = `${windowLabel} · ${scopeLabel(scope)}`;
 
     return (
         <div className="space-y-4">
             <CoverageNotice notice={config.coverageNotice} />
-            {banner}
 
             <Card>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -123,13 +132,20 @@ export function HazardScopeView({
                             id={`${storageKey}-range`}
                             disabled={hasSpecificDay}
                             className={`w-full cursor-pointer rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-xs transition-colors hover:border-border-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 ${hasSpecificDay ? 'opacity-50' : ''}`}
-                            value={days}
-                            onChange={(e) => setDays(Number(e.target.value))}
+                            value={rangeHours === null ? ALL_RECORDS : rangeHours}
+                            onChange={(e) => setRangeHours(e.target.value === ALL_RECORDS ? null : Number(e.target.value))}
                         >
-                            {/* 24h is offered on every hazard type, because it is
-                                what Home's cards link in with. */}
-                            {[...new Set([1, ...config.rangeOptionsDays])].sort((a, b) => a - b).map((d) => (
-                                <option key={d} value={d}>{d === 1 ? 'Last 24 hours' : `Last ${d} days`}</option>
+                            {/* Identical on every hazard type: the per-hazard
+                                rangeOptionsDays lists made two sections'
+                                "default view" cover different spans, which is
+                                exactly the inconsistency this work removes. */}
+                            {RANGE_OPTIONS.map((option) => (
+                                <option
+                                    key={option.hours ?? ALL_RECORDS}
+                                    value={option.hours ?? ALL_RECORDS}
+                                >
+                                    {option.label}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -172,12 +188,7 @@ export function HazardScopeView({
                 )}
             </Card>
 
-            {!enabled ? (
-                <NoEventsState
-                    title={pendingMessage ?? 'Waiting for a location'}
-                    description="Share or enter a location above and this view will fill in."
-                />
-            ) : status === 'failed' ? (
+            {status === 'failed' ? (
                 // No count is rendered on this path at all -- see DataState.
                 <UnavailableState
                     subject={`${config.title} data`}
@@ -195,10 +206,13 @@ export function HazardScopeView({
                                     <span className="font-medium text-foreground">{visible.length}</span>
                                     {' '}{visible.length === 1 ? config.itemNounSingular : config.itemNounPlural}
                                     {search.trim() && total !== visible.length && ` of ${total} in range`}
-                                    {truncated && !search.trim() && ` (showing newest 500 of ${total})`}
+                                    {truncated && !search.trim() && ` — newest 500 of ${countCapped ? `${total}+` : total}`}
                                 </>}
                         </p>
-                        <p className="text-xs uppercase tracking-[0.18em] text-foreground-subtle">{scopeNote}</p>
+                        <div className="flex items-center gap-3">
+                            <p className="text-xs uppercase tracking-[0.18em] text-foreground-subtle">{scopeNote}</p>
+                            <ExportButtons quakes={exportable} />
+                        </div>
                     </div>
 
                     {status === 'ready' && visible.length === 0 ? (
@@ -213,7 +227,6 @@ export function HazardScopeView({
                             events={visible}
                             config={config}
                             loading={status === 'loading'}
-                            userLoc={userLoc}
                             showRegion={scope.kind === 'global'}
                         />
                     )}

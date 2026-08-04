@@ -10,7 +10,7 @@ interface QuakeFeature {
         // through and USGS reports `mag: null` for some events. Declaring it
         // `number` here didn't make it one -- it just hid the null from every
         // consumer of this hook, and `maxFeltDistanceKm(null)` coerced it to
-        // magnitude 0 (see app/earthquake/local/page.tsx).
+        // magnitude 0 in the felt-distance filter the Local view used to apply.
         mag: number | null;
         place: string;
         time: number;

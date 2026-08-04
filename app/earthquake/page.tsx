@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
 
-// Local is every hazard section's default tab: entering a section should
-// answer "what is happening near me" first. It does not hard-depend on the
-// permission gate -- with no location resolved the page renders its location
-// prompt and the feed falls back to worldwide, so the tab still shows content
+// Regional is every hazard section's default tab, now that Local is gone.
+// It needs no permission gate: with no location resolved it falls back to the
+// first region rather than blocking, so the section always shows content
 // immediately whether or not geolocation is granted.
 export default function EarthquakeIndexPage() {
-    redirect('/earthquake/local');
+    redirect('/earthquake/regional');
 }

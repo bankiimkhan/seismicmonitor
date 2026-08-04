@@ -38,7 +38,8 @@ interface QueryOptions {
     /** Raw hazard_type values. Omit for every type. */
     types?: string[];
     scope: EventScope;
-    hours: number;
+    /** Omit for every record ever archived -- see RANGE_OPTIONS. */
+    hours?: number;
     limit?: number;
     minSeverity?: number;
     country?: string;
@@ -56,7 +57,9 @@ interface QueryResult {
     /** Matching events before `limit`; equals events.length when not truncated. */
     total: number;
     truncated: boolean;
-    window: { sinceMs: number; untilMs: number; hours: number } | null;
+    /** True when `total` is a floor because paging hit its ceiling. */
+    countCapped: boolean;
+    window: { sinceMs: number | null; untilMs: number; hours: number | null } | null;
     /** Human-readable failure reason. Only set when status === 'failed'. */
     error: string | null;
     /** Distinguishes "you are offline" from "the source is down", because the
@@ -82,7 +85,9 @@ interface Failure {
 function buildQueryString(options: QueryOptions): string {
     const params = scopeToParams(options.scope);
     if (options.types && options.types.length > 0) params.set('types', options.types.join(','));
-    params.set('hours', String(options.hours));
+    // Left off entirely for an all-records query; the route reads an absent
+    // `hours` as "no lower bound".
+    if (options.hours !== undefined) params.set('hours', String(options.hours));
     if (options.limit !== undefined) params.set('limit', String(options.limit));
     if (options.minSeverity !== undefined) params.set('minSeverity', String(options.minSeverity));
     if (options.country) params.set('country', options.country);
@@ -191,6 +196,7 @@ export function useHazardQuery(options: QueryOptions): QueryResult {
         events: fresh?.events ?? [],
         total: fresh?.total ?? 0,
         truncated: fresh?.truncated ?? false,
+        countCapped: fresh?.countCapped ?? false,
         window: fresh?.window ?? null,
         error: failed?.message ?? null,
         offline: failed?.offline ?? false,
